@@ -1,0 +1,161 @@
+'use client'
+
+import { useActionState, useState } from 'react'
+import { CheckCircle2 } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardHeader } from '@/components/ui/card'
+import { Field, Input, Select } from '@/components/ui/field'
+import { updateProfile } from '@/lib/actions/profile'
+import { ENGLISH_LEVELS, MAIN_GOALS } from '@/lib/db/schema'
+import { cn, LEVEL_LABELS } from '@/lib/utils'
+
+const GOAL_LABELS: Record<string, string> = {
+  travel: 'Travel',
+  career: 'Career',
+  studies: 'Studies',
+  interviews: 'Interviews',
+  'daily-conversation': 'Daily conversation',
+  fluency: 'Fluency',
+}
+
+const LANGUAGES = [
+  { value: 'pt-BR', label: 'Portuguese (Brazil)' },
+  { value: 'pt-PT', label: 'Portuguese (Portugal)' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'other', label: 'Other' },
+]
+
+export function LearningPreferences({
+  profile,
+  name,
+}: {
+  name: string
+  profile: {
+    level: string
+    autoAdaptLevel: boolean
+    mainGoal: string | null
+    dailyMinutesGoal: number
+    nativeLanguage: string
+    interests: string[]
+  }
+}) {
+  const [state, formAction, pending] = useActionState(updateProfile, undefined)
+  const [autoAdapt, setAutoAdapt] = useState(profile.autoAdaptLevel)
+  const [interests, setInterests] = useState(profile.interests.join(', '))
+
+  return (
+    <Card>
+      <CardHeader
+        title="Learning preferences"
+        hint="These shape every conversation: how hard the teacher speaks, which topics get suggested and what your weekly targets mean."
+      />
+
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="autoAdaptLevel" value={String(autoAdapt)} />
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Display name" error={state?.errors?.name}>
+            <Input name="name" defaultValue={name} required />
+          </Field>
+
+          <Field label="Native language" error={state?.errors?.nativeLanguage}>
+            <Select name="nativeLanguage" defaultValue={profile.nativeLanguage}>
+              {LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="English level" error={state?.errors?.level}>
+            <Select name="level" defaultValue={profile.level}>
+              {ENGLISH_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {LEVEL_LABELS[level]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Main goal" error={state?.errors?.mainGoal}>
+            <Select name="mainGoal" defaultValue={profile.mainGoal ?? ''}>
+              <option value="">No specific goal</option>
+              {MAIN_GOALS.map((goal) => (
+                <option key={goal} value={goal}>
+                  {GOAL_LABELS[goal]}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Daily practice" error={state?.errors?.dailyMinutesGoal}>
+            <Select name="dailyMinutesGoal" defaultValue={String(profile.dailyMinutesGoal)}>
+              {[10, 20, 30, 60].map((m) => (
+                <option key={m} value={m}>
+                  {m} minutes
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field
+            label="Interests"
+            hint="Comma separated. The teacher uses them for examples."
+            error={state?.errors?.interests}
+          >
+            <Input
+              name="interests"
+              value={interests}
+              onChange={(e) => setInterests(e.target.value)}
+              placeholder="startups, football, cooking"
+            />
+          </Field>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setAutoAdapt((v) => !v)}
+          aria-pressed={autoAdapt}
+          className="flex w-full items-start gap-3 rounded-xl border border-line bg-surface-2 p-4 text-left transition-colors hover:border-line-strong"
+        >
+          <span
+            className={cn(
+              'mt-0.5 flex h-5 w-9 shrink-0 items-center rounded-pill p-0.5 transition-colors',
+              autoAdapt ? 'bg-brand-500' : 'bg-line-strong',
+            )}
+          >
+            <span
+              className={cn(
+                'size-4 rounded-full bg-white transition-transform',
+                autoAdapt && 'translate-x-4',
+              )}
+            />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-ink">Adapt difficulty automatically</span>
+            <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted">
+              After each session Fluentia nudges your level up or down based on how you actually
+              spoke, instead of waiting for you to change it.
+            </span>
+          </span>
+        </button>
+
+        {state?.ok && (
+          <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-brand-600 dark:text-brand-400">
+            <CheckCircle2 className="size-4" />
+            Saved.
+          </p>
+        )}
+
+        <Button type="submit" variant="secondary" loading={pending}>
+          Save preferences
+        </Button>
+      </form>
+    </Card>
+  )
+}

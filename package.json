@@ -1,0 +1,46 @@
+{
+  "name": "fluentia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node scripts/setup-env.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "predev": "npm run setup && npm run db:migrate",
+    "dev": "next dev",
+    "prebuild": "npm run setup && npm run db:migrate",
+    "build": "next build",
+    "prestart": "npm run db:migrate",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:studio": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
+    "test": "node --test tests/db.test.mjs tests/domain.test.mjs",
+    "test:smoke": "node --env-file-if-exists=.env.local tests/smoke.mjs",
+    "test:voice": "node --env-file-if-exists=.env.local tests/voice-loop.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.33.0",
+    "motion": "^13.1.1",
+    "next": "^16.3.2",
+    "openai": "^7.5.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "drizzle-kit": "^0.31.10",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2"
+  }
+}

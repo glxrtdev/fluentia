@@ -1,0 +1,173 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { Check, RotateCcw, Trash2, Volume2 } from 'lucide-react'
+
+import { Badge } from '@/components/ui/misc'
+import { TranslateButton } from '@/components/vocabulary/translate-button'
+import { removeWord, setWordStatus } from '@/lib/actions/vocabulary'
+import { cn, formatRelative } from '@/lib/utils'
+
+export type SavedWord = {
+  id: string
+  word: string
+  partOfSpeech: string | null
+  phonetic: string | null
+  definition: string
+  example: string | null
+  audioUrl: string | null
+  translation: string | null
+  status: 'learning' | 'learned' | 'review'
+  createdAt: Date | string
+}
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'learning', label: 'Learning' },
+  { id: 'review', label: 'Review' },
+  { id: 'learned', label: 'Learned' },
+] as const
+
+const STATUS_TONE = {
+  learning: 'iris',
+  review: 'amber',
+  learned: 'brand',
+} as const
+
+export function WordList({ words }: { words: SavedWord[] }) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all')
+  const [, startTransition] = useTransition()
+  const [busy, setBusy] = useState<string | null>(null)
+
+  const visible = filter === 'all' ? words : words.filter((word) => word.status === filter)
+
+  const act = (id: string, fn: () => Promise<unknown>) => {
+    setBusy(id)
+    startTransition(async () => {
+      await fn()
+      setBusy(null)
+    })
+  }
+
+  const counts = {
+    all: words.length,
+    learning: words.filter((w) => w.status === 'learning').length,
+    review: words.filter((w) => w.status === 'review').length,
+    learned: words.filter((w) => w.status === 'learned').length,
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap gap-2">
+        {FILTERS.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => setFilter(option.id)}
+            aria-pressed={filter === option.id}
+            className={cn(
+              'rounded-pill border px-3 py-1.5 text-[0.8125rem] font-medium transition-colors',
+              filter === option.id
+                ? 'border-brand-500 bg-brand-500/8 text-ink'
+                : 'border-line text-muted hover:border-line-strong hover:text-ink',
+            )}
+          >
+            {option.label}
+            <span className="ml-1.5 text-[0.6875rem] text-faint">{counts[option.id]}</span>
+          </button>
+        ))}
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="rounded-card border border-dashed border-line px-5 py-10 text-center text-[0.8125rem] text-muted">
+          No words in this list yet.
+        </p>
+      ) : (
+        <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
+          {visible.map((word) => (
+            <li
+              key={word.id}
+              className={cn(
+                'flex flex-wrap items-start justify-between gap-4 p-4 sm:px-5',
+                busy === word.id && 'opacity-50',
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[0.9375rem] font-semibold text-ink">{word.word}</span>
+                  {word.phonetic && (
+                    <span className="font-mono text-xs text-faint">{word.phonetic}</span>
+                  )}
+                  {word.partOfSpeech && <Badge>{word.partOfSpeech}</Badge>}
+                  <Badge tone={STATUS_TONE[word.status]}>{word.status}</Badge>
+                </div>
+
+                <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
+                  {word.definition}
+                </p>
+                {word.example && (
+                  <p className="mt-1.5 text-[0.8125rem] italic leading-relaxed text-faint">
+                    &ldquo;{word.example}&rdquo;
+                  </p>
+                )}
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <TranslateButton
+                    word={word.word}
+                    definition={word.definition}
+                    vocabularyId={word.id}
+                    initial={word.translation}
+                    compact
+                  />
+                  <span className="text-[0.6875rem] text-faint">
+                    saved {formatRelative(word.createdAt)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                {word.audioUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void new Audio(word.audioUrl!).play()}
+                    aria-label={`Listen to ${word.word}`}
+                    className="rounded-lg p-2 text-faint transition-colors hover:bg-surface-2 hover:text-ink"
+                  >
+                    <Volume2 className="size-4" />
+                  </button>
+                )}
+                {word.status !== 'learned' && (
+                  <button
+                    type="button"
+                    onClick={() => act(word.id, () => setWordStatus(word.id, 'learned'))}
+                    aria-label={`Mark ${word.word} as learned`}
+                    className="rounded-lg p-2 text-faint transition-colors hover:bg-brand-500/10 hover:text-brand-600"
+                  >
+                    <Check className="size-4" />
+                  </button>
+                )}
+                {word.status !== 'review' && (
+                  <button
+                    type="button"
+                    onClick={() => act(word.id, () => setWordStatus(word.id, 'review'))}
+                    aria-label={`Move ${word.word} to review`}
+                    className="rounded-lg p-2 text-faint transition-colors hover:bg-amber/10 hover:text-amber"
+                  >
+                    <RotateCcw className="size-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => act(word.id, () => removeWord(word.id))}
+                  aria-label={`Remove ${word.word}`}
+                  className="rounded-lg p-2 text-faint transition-colors hover:bg-rose/10 hover:text-rose"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

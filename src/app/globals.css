@@ -1,0 +1,260 @@
+@import 'tailwindcss';
+
+/* Theme is driven by a class on <html> so users can force light or dark. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Fluentia palette — "deep water": a calm teal that reads as voice and flow,
+ * a warm amber reserved for streaks and XP, and a paper-toned canvas so the
+ * conversation screen feels like a quiet room rather than a dashboard.
+ */
+:root {
+  --brand-50: #eefbf7;
+  --brand-100: #d3f5ec;
+  --brand-200: #a6ebdb;
+  --brand-300: #6fdac6;
+  --brand-400: #35c1ab;
+  --brand-500: #14a392;
+  --brand-600: #0c8578;
+  --brand-700: #0d6a61;
+  --brand-800: #0f534e;
+  --brand-900: #0d403d;
+
+  --amber: #e08c17;
+  --amber-soft: #fdf3e2;
+  --iris: #6b62e8;
+  --rose: #d9536b;
+
+  --canvas: #fbfaf8;
+  --canvas-soft: #f4f2ee;
+  --surface: #ffffff;
+  --surface-2: #f7f6f3;
+  --line: #e7e4de;
+  --line-strong: #d6d2ca;
+  --ink: #14171b;
+  --ink-soft: #3d444d;
+  --muted: #6d757f;
+  --faint: #98a0a9;
+
+  --shadow-card: 0 1px 2px rgb(20 23 27 / 0.04), 0 8px 24px -12px rgb(20 23 27 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(20 23 27 / 0.05), 0 24px 48px -20px rgb(20 23 27 / 0.22);
+}
+
+.dark {
+  --canvas: #0a0c0e;
+  --canvas-soft: #0e1114;
+  --surface: #14181c;
+  --surface-2: #1a1f24;
+  --line: #262c33;
+  --line-strong: #333b43;
+  --ink: #f0f2f3;
+  --ink-soft: #c8cdd3;
+  --muted: #8d959d;
+  --faint: #667079;
+
+  --brand-500: #21bda9;
+  --brand-600: #17a191;
+  --amber: #f0a83a;
+  --amber-soft: #2a2013;
+
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.5), 0 24px 48px -20px rgb(0 0 0 / 0.8);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-iris: var(--iris);
+  --color-rose: var(--rose);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-display-serif), Georgia, 'Times New Roman', serif;
+
+  --radius-card: 1.125rem;
+  --radius-pill: 999px;
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.35s ease both;
+  --animate-halo: halo 2.4s ease-in-out infinite;
+  --animate-bar: bar 1.1s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Breathing halo behind the microphone while the teacher listens. */
+@keyframes halo {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.12;
+  }
+}
+
+@keyframes bar {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: -180% 0;
+  }
+  to {
+    background-position: 180% 0;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--brand-200);
+    color: var(--brand-900);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.018em;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+/* Thin scrollbars inside panels; the page itself keeps the native one. */
+@utility scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@utility grain {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.4;
+    background-image: radial-gradient(var(--line) 0.5px, transparent 0.5px);
+    background-size: 14px 14px;
+  }
+}
+
+/*
+ * Focus mode: the conversation room owns the whole screen on mobile, so the
+ * tab bar and the shell's bottom padding step out of the way.
+ */
+body:has([data-room]) [data-mobile-nav] {
+  display: none;
+}
+
+body:has([data-room]) [data-app-main] {
+  padding-bottom: 0;
+}
