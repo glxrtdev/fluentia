@@ -243,6 +243,7 @@ export default async function SessionReportPage({
                 key={correction.id}
                 correction={{
                   id: correction.id,
+                  messageId: correction.messageId,
                   category: correction.category,
                   original: correction.original,
                   corrected: correction.corrected,

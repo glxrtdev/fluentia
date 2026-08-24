@@ -184,6 +184,22 @@ const cleanup = () => sql`delete from users where email like '%@fluentia.test'`
 
 /* -------------------------------------------------------------------- run */
 
+/*
+ * The mistake ledger is written after the reply is sent, so the learner never
+ * waits for bookkeeping. That makes it eventually consistent: poll instead of
+ * assuming it landed the instant the response arrived.
+ */
+async function waitFor(check, label, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
+  let last
+  while (Date.now() < deadline) {
+    last = await check()
+    if (last.ok) return last
+    await new Promise((r) => setTimeout(r, 150))
+  }
+  return { ...last, timedOut: true, label }
+}
+
 const call = (path, init = {}) =>
   fetch(`${base}${path}`, { redirect: 'manual', ...init, headers: { cookie, ...(init.headers ?? {}) } })
 
@@ -227,8 +243,11 @@ async function main() {
     storedCorrections.every((row) => row.user_id === userId),
   )
 
-  const mistakes = await sql`select * from mistakes where user_id = ${userId} order by occurrences desc`
-  record('mistakes ledger was updated live', mistakes.length === 2)
+  const ledger = await waitFor(async () => {
+    const rows = await sql`select * from mistakes where user_id = ${userId} order by occurrences desc`
+    return { ok: rows.length === 2, rows }
+  }, 'ledger')
+  record('mistakes ledger converges after the reply', ledger.ok, `${ledger.rows.length} patterns`)
 
   /* --- the same mistake again should increment, not duplicate -------------
    * Four turns in total: the report only adapts the level when the session
@@ -241,15 +260,21 @@ async function main() {
     record(`turn ${extra + 2} accepted`, next.status === 200)
   }
 
-  const repeated = await sql`select occurrences from mistakes where user_id = ${userId} order by occurrences desc`
+  const repeated = await waitFor(async () => {
+    const rows = await sql`select occurrences from mistakes where user_id = ${userId} order by occurrences desc`
+    return { ok: rows.length === 2 && rows[0].occurrences === 4, rows }
+  }, 'counters')
   record(
     'a repeated mistake increments its counter instead of duplicating',
-    repeated.length === 2 && repeated[0].occurrences === 4,
-    `counts: ${repeated.map((m) => m.occurrences).join(',')}`,
+    repeated.ok,
+    `counts: ${repeated.rows.map((m) => m.occurrences).join(',')}`,
   )
 
-  const [occurrences] = await sql`select count(*)::int as n from mistake_occurrences where user_id = ${userId}`
-  record('each occurrence is logged separately', occurrences.n === 8, `${occurrences.n} rows`)
+  const logged = await waitFor(async () => {
+    const [row] = await sql`select count(*)::int as n from mistake_occurrences where user_id = ${userId}`
+    return { ok: row.n === 8, n: row.n }
+  }, 'occurrences')
+  record('each occurrence is logged separately', logged.ok, `${logged.n} rows`)
 
   /* --- speech ------------------------------------------------------------- */
   const speech = await call(`/api/speech?messageId=${data.assistantMessage.id}`)

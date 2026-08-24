@@ -1,10 +1,11 @@
+import { after } from 'next/server'
 import { eq, sql } from 'drizzle-orm'
 
 import { getCurrentUser } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { conversations } from '@/lib/db/schema'
 import {
-  appendMessage,
+  appendTurn,
   buildPromptFor,
   conversationHistory,
   getOwnedConversation,
@@ -17,7 +18,25 @@ import { generateTurn, transcribe } from '@/lib/openai/conversation'
 import { rateLimit } from '@/lib/rate-limit'
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024 // OpenAI's own upload ceiling
-const ACCEPTED = ['audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'audio/x-m4a']
+
+/*
+ * OpenAI reads the format from the file name, so the extension has to match the
+ * bytes. Browsers disagree about what they record: Chrome and Edge produce
+ * webm/opus, Safari mp4, Firefox ogg. Sending any of them as ".webm" gets a
+ * flat "audio file might be corrupted or unsupported" back.
+ */
+const EXTENSIONS: Record<string, string> = {
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'mp4',
+  'audio/x-m4a': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/mpga': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/flac': 'flac',
+}
+const ACCEPTED = Object.keys(EXTENSIONS)
 
 /**
  * One turn of the conversation: the learner's audio in, the teacher's words and
@@ -69,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     const ai = await getUserAi(user.id)
 
-    const extension = mime === 'audio/mp4' || mime === 'audio/x-m4a' ? 'mp4' : 'webm'
+    const extension = EXTENSIONS[mime] ?? 'webm'
     const file = new File([await audio.arrayBuffer()], `turn.${extension}`, {
       type: mime || 'audio/webm',
     })
@@ -81,32 +100,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return Response.json({ empty: true }, { status: 200 })
     }
 
+    /*
+     * `seq` does not depend on the reply, so it is fetched while the model is
+     * still writing. Every round trip to the database costs real waiting time
+     * for someone mid-conversation.
+     */
     const [prompt, history] = await Promise.all([
       buildPromptFor(user.id, user.name, conversation),
       conversationHistory(conversation.id),
     ])
 
-    const turn = await generateTurn(ai, {
-      systemPrompt: prompt,
-      history,
-      userText: transcript,
-    })
+    const [turn, seq] = await Promise.all([
+      generateTurn(ai, { systemPrompt: prompt, history, userText: transcript }),
+      nextSeq(conversation.id),
+    ])
 
-    const seq = await nextSeq(conversation.id)
-    const userMessage = await appendMessage({
+    const { user: userMessage, assistant: assistantMessage } = await appendTurn({
       conversationId: conversation.id,
       userId: user.id,
-      role: 'user',
-      content: transcript,
       seq,
+      userContent: transcript,
+      assistantContent: turn.reply,
       audioMs,
-    })
-    const assistantMessage = await appendMessage({
-      conversationId: conversation.id,
-      userId: user.id,
-      role: 'assistant',
-      content: turn.reply,
-      seq: seq + 1,
     })
 
     const saved = await saveCorrections({
@@ -116,23 +131,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       items: turn.corrections,
     })
 
-    // Recurring-mistake ledger updates live, so it survives an abandoned session.
-    await recordMistakes(
-      user.id,
-      conversation.id,
-      turn.corrections.map((correction) => ({
-        category: correction.category,
-        original: correction.original,
-        corrected: correction.corrected,
-        explanation: correction.explanation,
-        sentence: transcript.slice(0, 400),
-      })),
-    )
+    /*
+     * The recurring-mistake ledger and the turn counter are not on screen yet,
+     * so they run once the reply is on its way. The learner gets the teacher's
+     * answer without waiting for bookkeeping.
+     */
+    after(async () => {
+      await recordMistakes(
+        user.id,
+        conversation.id,
+        turn.corrections.map((correction) => ({
+          category: correction.category,
+          original: correction.original,
+          corrected: correction.corrected,
+          explanation: correction.explanation,
+          sentence: transcript.slice(0, 400),
+        })),
+      )
 
-    await db
-      .update(conversations)
-      .set({ userTurns: sql`${conversations.userTurns} + 1` })
-      .where(eq(conversations.id, conversation.id))
+      await db
+        .update(conversations)
+        .set({ userTurns: sql`${conversations.userTurns} + 1` })
+        .where(eq(conversations.id, conversation.id))
+    })
 
     return Response.json({
       userMessage: { id: userMessage.id, content: userMessage.content, seq: userMessage.seq },
@@ -143,6 +164,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       corrections: saved.map((correction) => ({
         id: correction.id,
+        messageId: correction.messageId,
         category: correction.category,
         original: correction.original,
         corrected: correction.corrected,

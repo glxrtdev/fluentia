@@ -15,6 +15,7 @@ import {
 
 import { FeedbackPanel, type LiveCorrection } from '@/components/conversation/feedback-panel'
 import { TeacherOrb, type Phase } from '@/components/conversation/teacher-orb'
+import { Transcript } from '@/components/conversation/transcript'
 import { Button } from '@/components/ui/button'
 import { discardConversation } from '@/lib/actions/conversation'
 import { useRecorder } from '@/lib/hooks/use-recorder'
@@ -55,13 +56,20 @@ export function ConversationRoom({
   const [spokeOnce, setSpokeOnce] = useState(hasUserTurns)
   const [mobileTab, setMobileTab] = useState<'conversation' | 'feedback'>('conversation')
   const [discarding, startDiscard] = useTransition()
+  const [activeCorrection, setActiveCorrection] = useState<string | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const scrollRef = useRef<HTMLDivElement | null>(null)
   const handsFreeRef = useRef(handsFree)
   handsFreeRef.current = handsFree
   // Lets `play` hand control back to the recorder without depending on it.
   const startListeningRef = useRef<() => void>(() => {})
+  /*
+   * Once the session is over — ended, discarded or navigated away from — a turn
+   * that is still in flight must not start talking. Without this, answering and
+   * then ending straight away left the teacher speaking over the report page.
+   */
+  const liveRef = useRef(true)
+  const turnAbort = useRef<AbortController | null>(null)
 
   const lastAssistant = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant'),
@@ -76,13 +84,11 @@ export function ConversationRoom({
     return () => clearInterval(timer)
   }, [phase])
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
-
   // Never let the teacher keep talking after the learner navigates away.
   useEffect(
     () => () => {
+      liveRef.current = false
+      turnAbort.current?.abort()
       audioRef.current?.pause()
       audioRef.current = null
     },
@@ -92,6 +98,7 @@ export function ConversationRoom({
   /* ---------------------------------------------------------- playback */
 
   const play = useCallback((messageId: string) => {
+    if (!liveRef.current) return
     const audio = audioRef.current ?? new Audio()
     audioRef.current = audio
 
@@ -126,12 +133,16 @@ export function ConversationRoom({
       body.set('audio', new File([blob], 'turn.webm', { type: blob.type || 'audio/webm' }))
       body.set('audioMs', String(durationMs))
 
+      turnAbort.current = new AbortController()
+
       try {
         const response = await fetch(`/api/conversations/${conversationId}/turn`, {
           method: 'POST',
           body,
+          signal: turnAbort.current.signal,
         })
         const data = await response.json()
+        if (!liveRef.current) return
 
         if (!response.ok) {
           setError(data?.error ?? 'Something went wrong. Try again.')
@@ -156,7 +167,9 @@ export function ConversationRoom({
         }
 
         play(data.assistantMessage.id)
-      } catch {
+      } catch (err) {
+        // Aborting on purpose is not a failure worth reporting.
+        if ((err as Error)?.name === 'AbortError' || !liveRef.current) return
         setError('The connection dropped. Your session is still saved.')
         setPhase('idle')
       }
@@ -196,7 +209,10 @@ export function ConversationRoom({
   const endSession = async () => {
     setEnding(true)
     setError(null)
+    liveRef.current = false
+    turnAbort.current?.abort()
     audioRef.current?.pause()
+    audioRef.current = null
     recorder.cancel()
 
     try {
@@ -211,6 +227,8 @@ export function ConversationRoom({
       const data = await response.json()
 
       if (!response.ok) {
+        // The session survives a failed report, so speaking can resume.
+        liveRef.current = true
         setError(data?.error ?? 'The report could not be generated.')
         setEnding(false)
         setConfirmEnd(false)
@@ -219,9 +237,15 @@ export function ConversationRoom({
 
       router.replace(`/sessions/${conversationId}`)
     } catch {
+      liveRef.current = true
       setError('The report could not be generated. Try again.')
       setEnding(false)
     }
+  }
+
+  const selectCorrection = (id: string) => {
+    setActiveCorrection(id)
+    setMobileTab('feedback')
   }
 
   const busy = phase === 'thinking' || recorder.preparing
@@ -294,32 +318,6 @@ export function ConversationRoom({
     </div>
   )
 
-  const transcript = (
-    <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-1 py-2 scroll-slim">
-      {messages.map((message) => (
-        <div key={message.id} className="animate-fade-in">
-          <p className="mb-1 text-[0.75rem] font-medium text-faint">
-            {message.role === 'assistant' ? 'Teacher' : 'You'}
-          </p>
-          <p
-            className={cn(
-              'text-[0.9375rem] leading-relaxed',
-              message.role === 'assistant' ? 'text-ink' : 'text-ink-soft',
-            )}
-          >
-            {message.content}
-          </p>
-        </div>
-      ))}
-      {phase === 'thinking' && (
-        <p className="flex items-center gap-2 text-[0.8125rem] text-muted">
-          <Loader2 className="size-3.5 animate-spin" />
-          Transcribing and thinking…
-        </p>
-      )}
-    </div>
-  )
-
   return (
     <div data-room className="flex h-[calc(100dvh-3.5rem)] flex-col lg:h-dvh">
       {/* Header */}
@@ -379,8 +377,19 @@ export function ConversationRoom({
             <TeacherOrb phase={phase} level={recorder.level} />
           </div>
 
-          <div className="mx-auto mt-6 min-h-0 w-full max-w-2xl flex-1 overflow-hidden">
-            {transcript}
+          {/*
+            This wrapper must be a flex column: the transcript sizes itself from
+            it, and without that it grew past the viewport and was simply clipped
+            instead of scrolling.
+          */}
+          <div className="mx-auto mt-6 flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+            <Transcript
+              messages={messages}
+              corrections={corrections}
+              thinking={phase === 'thinking'}
+              activeCorrectionId={activeCorrection}
+              onSelectCorrection={selectCorrection}
+            />
           </div>
 
           {(notice || error) && (
@@ -416,7 +425,11 @@ export function ConversationRoom({
             mobileTab === 'conversation' ? 'hidden lg:block' : 'block',
           )}
         >
-          <FeedbackPanel corrections={corrections} />
+          <FeedbackPanel
+            corrections={corrections}
+            activeId={activeCorrection}
+            onSelect={setActiveCorrection}
+          />
         </aside>
       </div>
 
@@ -445,6 +458,8 @@ export function ConversationRoom({
                   variant="danger"
                   loading={discarding}
                   onClick={() => {
+                    liveRef.current = false
+                    turnAbort.current?.abort()
                     audioRef.current?.pause()
                     recorder.cancel()
                     startDiscard(() => void discardConversation(conversationId))

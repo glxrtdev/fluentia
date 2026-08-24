@@ -1,11 +1,14 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Lightbulb, Sparkles } from 'lucide-react'
 
 import { CATEGORY_LABELS, cn } from '@/lib/utils'
 
 export type LiveCorrection = {
   id: string
+  /** Which of the learner's turns this belongs to, so it can be marked in place. */
+  messageId: string | null
   category: string
   original: string
   corrected: string
@@ -23,9 +26,25 @@ const TONE: Record<string, string> = {
   naturalness: 'text-brand-600 dark:text-brand-400',
 }
 
-export function CorrectionCard({ correction }: { correction: LiveCorrection }) {
+export function CorrectionCard({
+  correction,
+  active,
+  onSelect,
+}: {
+  correction: LiveCorrection
+  active?: boolean
+  onSelect?: (id: string) => void
+}) {
   return (
-    <article className="animate-fade-up rounded-xl border border-line bg-surface p-4">
+    <article
+      id={`correction-${correction.id}`}
+      onClick={() => onSelect?.(correction.id)}
+      className={cn(
+        "animate-fade-up rounded-control border bg-surface p-4 transition-colors",
+        onSelect && "cursor-pointer",
+        active ? "border-rose/50 bg-rose/5" : "border-line hover:border-line-strong",
+      )}
+    >
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <span
           className={cn(
@@ -69,7 +88,23 @@ export function CorrectionCard({ correction }: { correction: LiveCorrection }) {
   )
 }
 
-export function FeedbackPanel({ corrections }: { corrections: LiveCorrection[] }) {
+export function FeedbackPanel({
+  corrections,
+  activeId,
+  onSelect,
+}: {
+  corrections: LiveCorrection[]
+  activeId?: string | null
+  onSelect?: (id: string) => void
+}) {
+  /* Clicking an underlined mistake up in the transcript brings its card here. */
+  useEffect(() => {
+    if (!activeId) return
+    document
+      .getElementById(`correction-${activeId}`)
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeId])
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
@@ -89,14 +124,21 @@ export function FeedbackPanel({ corrections }: { corrections: LiveCorrection[] }
             <Lightbulb className="size-5 text-faint" />
             <p className="mt-3 text-[0.8125rem] font-medium text-ink">Nothing to fix yet</p>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              Corrections show up here as you speak. Only the ones worth your attention — the
-              teacher never reads them out loud.
+              Corrections show up here as you speak, and the words they refer to get underlined in
+              your own sentence above.
             </p>
           </div>
         ) : (
           [...corrections]
             .reverse()
-            .map((correction) => <CorrectionCard key={correction.id} correction={correction} />)
+            .map((correction) => (
+              <CorrectionCard
+                key={correction.id}
+                correction={correction}
+                active={activeId === correction.id}
+                onSelect={onSelect}
+              />
+            ))
         )}
       </div>
     </div>

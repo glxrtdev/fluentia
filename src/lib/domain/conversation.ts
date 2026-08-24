@@ -175,3 +175,47 @@ export async function saveCorrections(args: {
     )
     .returning()
 }
+
+/**
+ * Both sides of a turn in one round trip. The database is far away: two inserts
+ * that could be one are a tenth of a second the learner spends waiting.
+ */
+export async function appendTurn(args: {
+  conversationId: string
+  userId: string
+  seq: number
+  userContent: string
+  assistantContent: string
+  audioMs?: number | null
+}): Promise<{ user: StoredMessage; assistant: StoredMessage }> {
+  const rows = await db
+    .insert(conversationMessages)
+    .values([
+      {
+        conversationId: args.conversationId,
+        userId: args.userId,
+        role: 'user' as const,
+        content: args.userContent,
+        seq: args.seq,
+        audioMs: args.audioMs ?? null,
+      },
+      {
+        conversationId: args.conversationId,
+        userId: args.userId,
+        role: 'assistant' as const,
+        content: args.assistantContent,
+        seq: args.seq + 1,
+      },
+    ])
+    .returning({
+      id: conversationMessages.id,
+      role: conversationMessages.role,
+      content: conversationMessages.content,
+      seq: conversationMessages.seq,
+      createdAt: conversationMessages.createdAt,
+    })
+
+  const user = rows.find((row) => row.role === 'user') as StoredMessage
+  const assistant = rows.find((row) => row.role === 'assistant') as StoredMessage
+  return { user, assistant }
+}
