@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Check, RotateCcw, Trash2, Volume2 } from 'lucide-react'
+import { Check, RotateCcw, Trash2 } from 'lucide-react'
 
 import { Badge } from '@/components/ui/misc'
+import { PronounceButton } from '@/components/vocabulary/pronounce-button'
 import { TranslateButton } from '@/components/vocabulary/translate-button'
 import { removeWord, setWordStatus } from '@/lib/actions/vocabulary'
 import { cn, formatRelative } from '@/lib/utils'
@@ -125,16 +126,7 @@ export function WordList({ words }: { words: SavedWord[] }) {
               </div>
 
               <div className="flex shrink-0 items-center gap-1">
-                {word.audioUrl && (
-                  <button
-                    type="button"
-                    onClick={() => void new Audio(word.audioUrl!).play()}
-                    aria-label={`Listen to ${word.word}`}
-                    className="rounded-lg p-2 text-faint transition-colors hover:bg-surface-2 hover:text-ink"
-                  >
-                    <Volume2 className="size-4" />
-                  </button>
-                )}
+                <PronounceButton word={word.word} audioUrl={word.audioUrl} />
                 {word.status !== 'learned' && (
                   <button
                     type="button"

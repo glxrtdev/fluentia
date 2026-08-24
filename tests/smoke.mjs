@@ -354,13 +354,43 @@ async function main() {
     (await call('/api/speech/preview?voice=coral', {}, owner.cookie)).status === 428,
   )
 
+  /* saying a word out loud is guarded like every other paid endpoint */
+  record(
+    'word audio is 401 for anonymous',
+    (await call('/api/speech/word?word=thrive')).status === 401,
+  )
+  record(
+    'word audio rejects junk input',
+    (await call('/api/speech/word?word=%3Cscript%3E', {}, owner.cookie)).status === 400,
+  )
+  record(
+    'word audio without a key returns 428',
+    (await call('/api/speech/word?word=thrive', {}, owner.cookie)).status === 428,
+  )
+
   /* dictionary proxy */
   const dictionary = await call('/api/dictionary?word=entrepreneurship', {}, owner.cookie)
   const entry = await dictionary.json().catch(() => null)
+  const meaning = entry?.meanings?.[0]
   record(
     'dictionary returns a real definition',
-    dictionary.status === 200 && Boolean(entry?.definitions?.length),
+    dictionary.status === 200 && Boolean(meaning?.senses?.[0]?.definition),
     `status ${dictionary.status}`,
+  )
+  record(
+    'the entry is grouped by part of speech',
+    Boolean(meaning?.partOfSpeech) &&
+      Array.isArray(meaning?.synonyms) &&
+      Array.isArray(meaning?.antonyms),
+  )
+  record('definitions are credited to the source', entry?.source === 'dictionaryapi.dev')
+
+  const missing = await call('/api/dictionary?word=zzqqxx', {}, owner.cookie)
+  const missingBody = await missing.json().catch(() => ({}))
+  record(
+    'an unknown word is a 404, not an error',
+    missing.status === 404 && missingBody.reason === 'not-found',
+    `status ${missing.status}`,
   )
   record(
     'dictionary rejects junk input',
