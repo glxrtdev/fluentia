@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: 'My sessions' }
 export default async function SessionsPage() {
   const user = await requireUser()
 
-  const rows = db
+  const rows = await db
     .select({
       id: conversations.id,
       topicLabel: conversations.topicLabel,
@@ -38,7 +38,6 @@ export default async function SessionsPage() {
     .where(eq(conversations.userId, user.id))
     .orderBy(desc(conversations.startedAt))
     .limit(60)
-    .all()
 
   return (
     <PageShell>
@@ -57,7 +56,7 @@ export default async function SessionsPage() {
             action={
               <Link
                 href="/speak"
-                className="inline-flex items-center gap-2 rounded-pill bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white dark:bg-brand-500 dark:text-[#04201d]"
+                className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
                 Start your first conversation
               </Link>
@@ -86,7 +85,7 @@ export default async function SessionsPage() {
                       <span className="text-[0.9375rem] font-semibold text-ink">
                         {session.topicLabel}
                       </span>
-                      {live && <Badge tone="brand">in progress</Badge>}
+                      {live && <Badge tone="accent">in progress</Badge>}
                       <Badge>
                         {CATEGORY_BY_ID.get(session.category as never)?.label ?? 'Custom'}
                       </Badge>

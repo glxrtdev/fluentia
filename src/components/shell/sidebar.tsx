@@ -52,7 +52,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
 
       <Link
         href="/speak"
-        className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98] dark:bg-brand-500 dark:text-[#04201d] dark:hover:bg-brand-400"
+        className="mt-5 flex h-10 items-center justify-center gap-2 rounded-control bg-brand-500 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600 active:scale-[0.985]"
       >
         <Plus className="size-4" />
         New conversation
@@ -61,7 +61,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
       <nav className="mt-7 flex-1 space-y-6 overflow-y-auto scroll-slim">
         {groups.map((group) => (
           <div key={group}>
-            <p className="px-3 pb-2 text-[0.625rem] font-semibold uppercase tracking-[0.16em] text-faint">
+            <p className="px-3 pb-2 text-[0.75rem] font-medium text-faint">
               {GROUP_LABELS[group]}
             </p>
             <div className="space-y-0.5">
@@ -75,7 +75,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
 
       <div className="mt-4 space-y-3 border-t border-line pt-4">
         <div className="flex items-center justify-between px-1">
-          <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-amber">
+          <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-brand-600 dark:text-brand-400">
             <Flame className="size-3.5" />
             {user.streak}
             <span className="font-medium text-muted">day streak</span>
@@ -84,7 +84,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
         </div>
 
         <div className="flex items-center gap-2.5 rounded-xl px-1 py-1">
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-500/12 text-[0.6875rem] font-bold text-brand-700 dark:text-brand-300">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-500/12 text-[0.6875rem] font-bold text-brand-600 dark:text-brand-400">
             {initials(user.name)}
           </span>
           <div className="min-w-0 flex-1">
@@ -118,7 +118,7 @@ export function MobileChrome({ user }: { user: ShellUser }) {
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur-md lg:hidden">
         <Logo href="/dashboard" />
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-amber">
+          <span className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-brand-600 dark:text-brand-400">
             <Flame className="size-3.5" />
             {user.streak}
           </span>
@@ -141,7 +141,7 @@ export function MobileChrome({ user }: { user: ShellUser }) {
                 className={cn(
                   'flex items-center justify-center rounded-full transition-colors',
                   primary
-                    ? 'size-9 bg-brand-600 text-white dark:bg-brand-500 dark:text-[#04201d]'
+                    ? 'size-9 bg-brand-500 text-white '
                     : cn('size-6', active ? 'text-brand-600 dark:text-brand-400' : 'text-faint'),
                 )}
               >

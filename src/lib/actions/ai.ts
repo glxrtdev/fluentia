@@ -17,7 +17,7 @@ export type AiSettingsState =
 
 /** Lists models with the given key — the cheapest way to prove it works. */
 async function probe(userId: string) {
-  const ai = getUserAi(userId)
+  const ai = await getUserAi(userId)
   await ai.client.models.list()
 }
 
@@ -31,7 +31,8 @@ export async function saveApiKey(
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const apiKey = parsed.data.apiKey
-  db.insert(userSettings)
+  await db
+    .insert(userSettings)
     .values({
       userId: user.id,
       openaiKeyCipher: encryptSecret(apiKey),
@@ -49,22 +50,21 @@ export async function saveApiKey(
         updatedAt: new Date(),
       },
     })
-    .run()
 
   // Verify immediately so the user never leaves this page unsure.
   try {
     await probe(user.id)
-    db.update(userSettings)
+    await db
+      .update(userSettings)
       .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
       .where(eq(userSettings.userId, user.id))
-      .run()
     revalidatePath('/settings')
     return { ok: true, message: 'Key saved and verified.' }
   } catch (error) {
-    db.update(userSettings)
+    await db
+      .update(userSettings)
       .set({ openaiKeyStatus: 'invalid', openaiKeyVerifiedAt: null })
       .where(eq(userSettings.userId, user.id))
-      .run()
     revalidatePath('/settings')
     return { errors: { apiKey: toAiError(error).message } }
   }
@@ -78,19 +78,19 @@ export async function testApiKey(): Promise<AiSettingsState> {
 
   try {
     await probe(user.id)
-    db.update(userSettings)
+    await db
+      .update(userSettings)
       .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
       .where(eq(userSettings.userId, user.id))
-      .run()
     revalidatePath('/settings')
     return { ok: true, message: 'Connection healthy.' }
   } catch (error) {
     const aiError = toAiError(error)
     if (aiError.status === 401) {
-      db.update(userSettings)
+      await db
+        .update(userSettings)
         .set({ openaiKeyStatus: 'invalid' })
         .where(eq(userSettings.userId, user.id))
-        .run()
     }
     revalidatePath('/settings')
     return { errors: { form: aiError.message } }
@@ -100,7 +100,8 @@ export async function testApiKey(): Promise<AiSettingsState> {
 export async function removeApiKey(): Promise<AiSettingsState> {
   const user = await requireUser()
 
-  db.update(userSettings)
+  await db
+    .update(userSettings)
     .set({
       openaiKeyCipher: null,
       openaiKeyHint: null,
@@ -109,7 +110,6 @@ export async function removeApiKey(): Promise<AiSettingsState> {
       updatedAt: new Date(),
     })
     .where(eq(userSettings.userId, user.id))
-    .run()
 
   revalidatePath('/settings')
   return { ok: true, message: 'Key removed.' }
@@ -129,10 +129,10 @@ export async function updateAiPreferences(
   })
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
-  db.update(userSettings)
+  await db
+    .update(userSettings)
     .set({ ...parsed.data, updatedAt: new Date() })
     .where(eq(userSettings.userId, user.id))
-    .run()
 
   revalidatePath('/settings')
   return { ok: true, message: 'Preferences saved.' }
@@ -140,8 +140,8 @@ export async function updateAiPreferences(
 
 export async function setTheme(theme: 'system' | 'light' | 'dark') {
   const user = await requireUser()
-  db.update(userSettings)
+  await db
+    .update(userSettings)
     .set({ theme, updatedAt: new Date() })
     .where(eq(userSettings.userId, user.id))
-    .run()
 }

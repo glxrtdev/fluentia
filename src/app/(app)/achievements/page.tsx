@@ -38,8 +38,7 @@ const ICONS: Record<string, typeof Award> = {
 
 export default async function AchievementsPage() {
   const user = await requireUser()
-  const profile = await getProfile(user.id)
-  const all = listAchievements(user.id)
+  const [profile, all] = await Promise.all([getProfile(user.id), listAchievements(user.id)])
 
   const unlocked = all.filter((achievement) => achievement.unlockedAt)
 
@@ -59,7 +58,7 @@ export default async function AchievementsPage() {
             label="Streak"
             value={profile.streakCurrent}
             suffix="days"
-            icon={<Flame className="size-3 text-amber" />}
+            icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
           />
         </div>
         <Progress
@@ -97,7 +96,7 @@ export default async function AchievementsPage() {
                   <span
                     className={cn(
                       'rounded-pill px-2 py-0.5 text-[0.625rem] font-bold',
-                      isUnlocked ? 'bg-brand-500/12 text-brand-700 dark:text-brand-300' : 'text-faint',
+                      isUnlocked ? 'bg-brand-500/12 text-brand-600 dark:text-brand-400' : 'text-faint',
                     )}
                   >
                     +{achievement.xp} XP

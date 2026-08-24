@@ -29,18 +29,21 @@ export default async function SessionReportPage({
   const user = await requireUser()
   const { id } = await params
 
-  const conversation = getOwnedConversation(user.id, id)
+  const conversation = await getOwnedConversation(user.id, id)
   if (!conversation) notFound()
   if (conversation.status === 'active') redirect(`/speak/${conversation.id}`)
 
-  const report = db
-    .select()
-    .from(sessionReports)
-    .where(eq(sessionReports.conversationId, conversation.id))
-    .get()
+  const [reportRows, transcript, corrections] = await Promise.all([
+    db
+      .select()
+      .from(sessionReports)
+      .where(eq(sessionReports.conversationId, conversation.id))
+      .limit(1),
+    conversationTranscript(conversation.id),
+    conversationCorrections(conversation.id),
+  ])
 
-  const transcript = conversationTranscript(conversation.id)
-  const corrections = conversationCorrections(conversation.id)
+  const report = reportRows[0]
 
   return (
     <PageShell>
@@ -54,7 +57,7 @@ export default async function SessionReportPage({
 
       <header className="mt-5 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
         <div>
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+          <p className="text-[0.75rem] font-medium text-muted">
             Session report
           </p>
           <h1 className="display mt-2 text-[2rem] leading-tight text-ink">
@@ -74,7 +77,7 @@ export default async function SessionReportPage({
 
         {report && (
           <div className="flex items-center gap-2">
-            <Badge tone="brand">Estimated {report.estimatedLevel}</Badge>
+            <Badge tone="accent">Estimated {report.estimatedLevel}</Badge>
             <Badge>{report.wordsSpoken} words spoken</Badge>
           </div>
         )}
@@ -105,7 +108,7 @@ export default async function SessionReportPage({
                     <div className="flex size-[88px] items-center justify-center rounded-full border border-dashed border-line">
                       <span className="text-lg text-faint">—</span>
                     </div>
-                    <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-faint">
+                    <span className="text-[0.75rem] font-medium text-muted">
                       Pronunciation
                     </span>
                     <span className="text-[0.6875rem] leading-relaxed text-faint">
@@ -154,7 +157,7 @@ export default async function SessionReportPage({
                   <ul className="space-y-3">
                     {report.recommendations.map((recommendation) => (
                       <li key={recommendation} className="flex gap-2.5">
-                        <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-amber" />
+                        <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-brand-600 dark:text-brand-400" />
                         <span className="text-[0.875rem] leading-relaxed text-ink-soft">
                           {recommendation}
                         </span>
@@ -265,7 +268,7 @@ export default async function SessionReportPage({
         <Card className="space-y-5">
           {transcript.map((message) => (
             <div key={message.id}>
-              <p className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-faint">
+              <p className="mb-1 text-[0.75rem] font-medium text-faint">
                 {message.role === 'assistant' ? 'Teacher' : 'You'}
               </p>
               <p

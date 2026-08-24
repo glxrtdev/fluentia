@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const ai = getUserAi(user.id)
+    const ai = await getUserAi(user.id)
     const completion = await ai.client.chat.completions.create({
       model: ai.models.chat,
       temperature: 0.2,
@@ -68,12 +68,12 @@ export async function POST(request: Request) {
 
     // Persist it when the word is already in the learner's own vocabulary.
     if (parsed.data.vocabularyId) {
-      db.update(vocabulary)
+      await db
+        .update(vocabulary)
         .set({ translation, updatedAt: new Date() })
         .where(
           and(eq(vocabulary.id, parsed.data.vocabularyId), eq(vocabulary.userId, user.id)),
         )
-        .run()
     }
 
     return Response.json({ translation, language })

@@ -3,18 +3,24 @@
  * End-to-end smoke test against a running server.
  *   node --env-file-if-exists=.env.local tests/smoke.mjs http://localhost:3000
  *
- * Checks the public pages, the auth guards, every authenticated page and the
- * isolation rules on the conversation API. It seeds a throwaway user straight
- * into the database and signs in with a real session token, so the server code
- * under test is exactly the code that runs in production. OpenAI is never called.
+ * Checks the public pages, the auth guards, the real signup journey, every
+ * authenticated page and the isolation rules on the conversation API. Fixtures
+ * are seeded straight into Postgres and signed in with a real session token, so
+ * the server code under test is exactly the code that runs in production.
+ * OpenAI is never called.
  */
-import { createHash, randomBytes, scryptSync } from 'node:crypto'
-import { resolve } from 'node:path'
+import { createHash, randomBytes, randomUUID, scryptSync } from 'node:crypto'
 
-import Database from 'better-sqlite3'
+import postgres from 'postgres'
 
 const base = process.argv[2] ?? 'http://localhost:3000'
-const dbFile = resolve(process.cwd(), process.env.DATABASE_URL ?? './data/fluentia.db')
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is missing. Run with --env-file-if-exists=.env.local')
+  process.exit(1)
+}
+
+const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false })
 
 let failures = 0
 const record = (name, ok, detail = '') => {
@@ -22,86 +28,47 @@ const record = (name, ok, detail = '') => {
   if (!ok) failures += 1
 }
 
-/* ---------------------------------------------------------------- fixtures */
-
-const db = new Database(dbFile)
-db.pragma('foreign_keys = ON')
-
 const stamp = Date.now()
 const password = `scrypt$${randomBytes(16).toString('hex')}$${scryptSync('x', 'y', 64).toString('hex')}`
 
-function makeUser(label) {
-  const id = crypto.randomUUID()
-  db.prepare('insert into users (id, email, name, password_hash) values (?, ?, ?, ?)').run(
-    id,
-    `${label}-${stamp}@fluentia.test`,
-    `${label} Tester`,
-    password,
-  )
-  db.prepare(
-    'insert into profiles (user_id, level, onboarded_at, main_goal) values (?, ?, ?, ?)',
-  ).run(id, 'intermediate', Date.now(), 'career')
-  db.prepare('insert into user_settings (user_id) values (?)').run(id)
+/* ---------------------------------------------------------------- fixtures */
+
+async function makeUser(label) {
+  const id = randomUUID()
+
+  await sql`
+    insert into users (id, email, name, password_hash)
+    values (${id}, ${`${label}-${stamp}@fluentia.test`}, ${`${label} Tester`}, ${password})
+  `
+  await sql`
+    insert into profiles (user_id, level, onboarded_at, main_goal)
+    values (${id}, 'intermediate', now(), 'career')
+  `
+  await sql`insert into user_settings (user_id) values (${id})`
+
   for (const [kind, target] of [
     ['weekly_sessions', 5],
     ['weekly_minutes', 100],
     ['weekly_words', 20],
     ['weekly_mistakes', 10],
   ]) {
-    db.prepare('insert into goals (id, user_id, kind, target) values (?, ?, ?, ?)').run(
-      crypto.randomUUID(),
-      id,
-      kind,
-      target,
-    )
+    await sql`
+      insert into goals (id, user_id, kind, target)
+      values (${randomUUID()}, ${id}, ${kind}, ${target})
+    `
   }
 
   const token = randomBytes(32).toString('base64url')
-  db.prepare('insert into sessions (id, user_id, expires_at) values (?, ?, ?)').run(
-    createHash('sha256').update(token).digest('hex'),
-    id,
-    Date.now() + 86_400_000,
-  )
+  await sql`
+    insert into sessions (id, user_id, expires_at)
+    values (${createHash('sha256').update(token).digest('hex')}, ${id}, now() + interval '1 day')
+  `
 
   return { id, cookie: `fluentia_session=${token}` }
 }
 
-const owner = makeUser('owner')
-const intruder = makeUser('intruder')
-
-// A completed conversation belonging to `owner`, used for the isolation checks.
-const conversationId = crypto.randomUUID()
-db.prepare(
-  'insert into conversations (id, user_id, topic_id, topic_label, category, level, status, duration_seconds, user_turns) values (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-).run(conversationId, owner.id, 'my-career', 'My career', 'career', 'intermediate', 'active', 0, 1)
-
-const messageId = crypto.randomUUID()
-db.prepare(
-  'insert into conversation_messages (id, conversation_id, user_id, seq, role, content) values (?, ?, ?, ?, ?, ?)',
-).run(messageId, conversationId, owner.id, 0, 'assistant', 'Tell me about your current job.')
-
-db.prepare(
-  'insert into mistakes (id, user_id, category, signature, original, corrected, explanation, occurrences) values (?, ?, ?, ?, ?, ?, ?, ?)',
-).run(
-  crypto.randomUUID(),
-  owner.id,
-  'prepositions',
-  'prepositions:depend of>depend on',
-  'depend of',
-  'depend on',
-  'In English we depend ON something.',
-  4,
-)
-
-db.prepare(
-  'insert into vocabulary (id, user_id, word, definition, status) values (?, ?, ?, ?, ?)',
-).run(crypto.randomUUID(), owner.id, 'entrepreneurship', 'The activity of setting up a business.', 'learning')
-
-
-/** Throwaway fixtures are removed so the development database stays clean. */
-function cleanup() {
-  db.prepare("delete from users where email like '%@fluentia.test'").run()
-}
+/** Throwaway fixtures are removed so the database stays clean. */
+const cleanup = () => sql`delete from users where email like '%@fluentia.test'`
 
 /* -------------------------------------------------------------------- http */
 
@@ -175,10 +142,7 @@ async function signupJourney() {
   const dashboard = await call('/dashboard', {}, journeyCookie)
   const body = await dashboard.text()
   record('the new dashboard renders', dashboard.status === 200)
-  record(
-    'a fresh account is told to add its OpenAI key',
-    body.includes('One step left'),
-  )
+  record('a fresh account is told to add its OpenAI key', body.includes('One step left'))
   record('a fresh account starts with no practice', body.includes('Streak'))
 
   // Signing up twice with the same email must be refused.
@@ -201,6 +165,33 @@ async function signupJourney() {
 }
 
 async function main() {
+  const owner = await makeUser('owner')
+  const intruder = await makeUser('intruder')
+
+  // A conversation belonging to `owner`, used for the isolation checks.
+  const conversationId = randomUUID()
+  await sql`
+    insert into conversations (id, user_id, topic_id, topic_label, category, level, status, duration_seconds, user_turns)
+    values (${conversationId}, ${owner.id}, 'my-career', 'My career', 'career', 'intermediate', 'active', 0, 1)
+  `
+
+  const messageId = randomUUID()
+  await sql`
+    insert into conversation_messages (id, conversation_id, user_id, seq, role, content)
+    values (${messageId}, ${conversationId}, ${owner.id}, 0, 'assistant', 'Tell me about your current job.')
+  `
+
+  await sql`
+    insert into mistakes (id, user_id, category, signature, original, corrected, explanation, occurrences)
+    values (${randomUUID()}, ${owner.id}, 'prepositions', 'prepositions:depend of>depend on',
+            'depend of', 'depend on', 'In English we depend ON something.', 4)
+  `
+
+  await sql`
+    insert into vocabulary (id, user_id, word, definition, status)
+    values (${randomUUID()}, ${owner.id}, 'entrepreneurship', 'The activity of setting up a business.', 'learning')
+  `
+
   /* public surface */
   const landing = await call('/')
   record('landing renders', landing.status === 200)
@@ -217,8 +208,14 @@ async function main() {
     anonymous.status === 307 && (anonymous.headers.get('location') ?? '').includes('/login'),
     `status ${anonymous.status}`,
   )
-  record('turn API is 401 for anonymous', (await call(`/api/conversations/${conversationId}/turn`, { method: 'POST' })).status === 401)
-  record('speech API is 401 for anonymous', (await call(`/api/speech?messageId=${messageId}`)).status === 401)
+  record(
+    'turn API is 401 for anonymous',
+    (await call(`/api/conversations/${conversationId}/turn`, { method: 'POST' })).status === 401,
+  )
+  record(
+    'speech API is 401 for anonymous',
+    (await call(`/api/speech?messageId=${messageId}`)).status === 401,
+  )
 
   /* authenticated pages */
   for (const path of [
@@ -237,7 +234,6 @@ async function main() {
     record(`${path} renders when signed in`, page.status === 200, `status ${page.status}`)
   }
 
-  /* signed-in users skip the auth pages */
   const backToApp = await call('/login', {}, owner.cookie)
   record('signed-in users are pushed out of /login', backToApp.status === 307)
 
@@ -245,11 +241,19 @@ async function main() {
   const foreignRoom = await call(`/speak/${conversationId}`, {}, intruder.cookie)
   record('another user cannot open the room', foreignRoom.status === 404, `status ${foreignRoom.status}`)
 
-  const foreignTurn = await call(`/api/conversations/${conversationId}/turn`, { method: 'POST' }, intruder.cookie)
+  const foreignTurn = await call(
+    `/api/conversations/${conversationId}/turn`,
+    { method: 'POST' },
+    intruder.cookie,
+  )
   record('another user cannot post a turn', foreignTurn.status === 404, `status ${foreignTurn.status}`)
 
   const foreignSpeech = await call(`/api/speech?messageId=${messageId}`, {}, intruder.cookie)
-  record('another user cannot fetch the audio', foreignSpeech.status === 404, `status ${foreignSpeech.status}`)
+  record(
+    'another user cannot fetch the audio',
+    foreignSpeech.status === 404,
+    `status ${foreignSpeech.status}`,
+  )
 
   const foreignEnd = await call(
     `/api/conversations/${conversationId}/end`,
@@ -279,9 +283,6 @@ async function main() {
     `status ${noKey.status} — ${noKeyBody.error ?? ''}`,
   )
 
-  /* the real entry path: signup → onboarding → dashboard, driven through the
-   * actual server actions (and without JavaScript, which is why the hidden
-   * progressive-enhancement fields are replayed verbatim). */
   await signupJourney()
 
   /* translation needs a key too, and says so */
@@ -319,6 +320,16 @@ async function main() {
     (await call('/api/dictionary?word=%3Cscript%3E', {}, owner.cookie)).status === 400,
   )
 
+  /* deleting a user must take their data with them */
+  const before = await sql`select count(*)::int as n from conversations where user_id = ${owner.id}`
+  await sql`delete from users where id = ${owner.id}`
+  const after = await sql`select count(*)::int as n from conversations where user_id = ${owner.id}`
+  record(
+    'deleting a user cascades to their conversations',
+    before[0].n === 1 && after[0].n === 0,
+    `${before[0].n} → ${after[0].n}`,
+  )
+
   console.log(`\n${failures === 0 ? 'All checks passed.' : `${failures} check(s) failed.`}`)
   process.exitCode = failures === 0 ? 0 : 1
 }
@@ -328,7 +339,7 @@ main()
     console.error(error)
     process.exitCode = 1
   })
-  .finally(() => {
-    cleanup()
-    db.close()
+  .finally(async () => {
+    await cleanup()
+    await sql.end()
   })

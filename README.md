@@ -47,7 +47,7 @@ recalculated from real rows.
 | --- | --- | --- |
 | App | Next.js (App Router) + TypeScript | server routes live beside the UI, so the API key never reaches the client |
 | UI | Tailwind CSS v4, design tokens in `globals.css`, Lucide icons | one small design system, light and dark from the same tokens |
-| Database | SQLite + Drizzle ORM | zero external services; swapping to Postgres is a driver change, the schema is portable |
+| Database | **Supabase Postgres** + Drizzle ORM | managed, works on serverless, and the connection string is the only credential the app needs |
 | Auth | own session cookies (`scrypt` + hashed opaque tokens) | no SaaS dependency, 30-day persistent sessions, no JWT footguns |
 | API key | AES-256-GCM at rest, decrypted only inside the request that calls OpenAI | a database dump alone reveals nothing |
 | Speech | `gpt-4o-transcribe` → `gpt-4o` → `gpt-4o-mini-tts` (all overridable) | text arrives first so corrections paint immediately; audio streams after |
@@ -59,7 +59,9 @@ recalculated from real rows.
 
 ```bash
 npm install
-npm run dev          # generates .env.local, migrates the database, starts the app
+npm run setup        # writes .env.local with a fresh ENCRYPTION_KEY
+# paste your Supabase connection string into DATABASE_URL in .env.local
+npm run dev          # applies migrations, then starts the app
 ```
 
 Then:
@@ -69,16 +71,16 @@ Then:
 3. go to **Settings → AI configuration** and paste your OpenAI key (it is verified live);
 4. open **Speaking**, pick a topic, and talk.
 
-`npm run dev` runs `setup` and `db:migrate` first, so the secrets and the SQLite file are created
-for you. Nothing else is required.
+`npm run dev` runs `setup` and `db:migrate` first, so the schema is applied and the achievement
+catalogue is seeded before the server starts.
 
 ### Environment
 
-`.env.local` is generated on first run:
+`npm run setup` creates `.env.local` with a fresh key. The database URL is a credential, so it is never invented for you:
 
 | Variable | Meaning |
 | --- | --- |
-| `DATABASE_URL` | path to the SQLite file (default `./data/fluentia.db`) |
+| `DATABASE_URL` | Supabase connection string (Project Settings → Database → Connection string → URI) |
 | `ENCRYPTION_KEY` | 32-byte hex key that encrypts each user's OpenAI key |
 | `OPENAI_CHAT_MODEL` / `OPENAI_STT_MODEL` / `OPENAI_TTS_MODEL` | optional defaults, overridable per user in Settings |
 | `OPENAI_BASE_URL` | optional; point at an OpenAI-compatible gateway (also used by the voice-loop test) |
@@ -86,9 +88,13 @@ for you. Nothing else is required.
 > `ENCRYPTION_KEY` is the only secret that matters: rotate it and every stored API key becomes
 > unreadable, so users would need to paste theirs again.
 
-> **If this folder is synced by OneDrive, Dropbox or iCloud**, point the database somewhere the sync
-> client does not touch — cloud clients lock files mid-write and SQLite answers with
-> `SQLITE_IOERR`. For example: `DATABASE_URL=C:/Users/you/fluentia/fluentia.db`.
+> Use the **Transaction pooler** URI (port 6543) for serverless deployments; the app already sets
+> `prepare: false`, which is what that pooler requires. A long-running server can use the Session
+> pooler or the direct connection instead.
+
+> The connection string is a full-access database credential: it belongs in server-side environment
+> variables only. Supabase Row Level Security is **not** what isolates users here — the app does,
+> by filtering every query on the session user id.
 
 ### Scripts
 
@@ -97,7 +103,7 @@ npm run dev          # migrate + dev server
 npm run build        # migrate + production build (type-checked)
 npm start            # migrate + production server
 npm run typecheck
-npm test             # schema + date/streak unit tests
+npm test             # migration shape + date/streak unit tests (no database needed)
 npm run test:smoke http://localhost:3000    # pages, auth guards, per-user isolation
 npm run test:voice  http://localhost:3000 4319   # the full voice loop against a mock OpenAI
 npm run db:generate # new migration after editing the schema
@@ -148,6 +154,8 @@ dashboard is a single read. Weekly goal progress is always computed from real ro
 - **Input** is validated with Zod at every boundary (`src/lib/validation.ts`), including audio size
   and MIME type on upload.
 - **Rate limits** guard sign-in, session starts, turns, speech and dictionary lookups.
+- **Cascades** — deleting a user removes every row they own, enforced by foreign keys rather than
+  application code.
 - **Audio** is streamed to OpenAI and never written to disk; Fluentia keeps the text.
 
 ---

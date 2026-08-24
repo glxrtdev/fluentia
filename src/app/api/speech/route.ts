@@ -19,13 +19,13 @@ export async function GET(request: Request) {
   const messageId = new URL(request.url).searchParams.get('messageId')
   if (!messageId) return Response.json({ error: 'messageId is required' }, { status: 400 })
 
-  const message = db
+  const [message] = await db
     .select({ content: conversationMessages.content, role: conversationMessages.role })
     .from(conversationMessages)
     .where(
       and(eq(conversationMessages.id, messageId), eq(conversationMessages.userId, user.id)),
     )
-    .get()
+    .limit(1)
 
   if (!message) return Response.json({ error: 'Message not found' }, { status: 404 })
   if (message.role !== 'assistant') {
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   if (!limit.ok) return Response.json({ error: 'Too many requests.' }, { status: 429 })
 
   try {
-    const stream = await speak(getUserAi(user.id), message.content)
+    const stream = await speak(await getUserAi(user.id), message.content)
 
     return new Response(stream, {
       headers: {

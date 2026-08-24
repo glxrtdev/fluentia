@@ -17,16 +17,17 @@ import { buildTeacherPrompt } from '@/lib/openai/prompts'
 import type { TurnCorrection } from '@/lib/openai/conversation'
 
 /** Loads a conversation only if it belongs to the caller. */
-export function getOwnedConversation(userId: string, conversationId: string) {
-  return db
+export async function getOwnedConversation(userId: string, conversationId: string) {
+  const [row] = await db
     .select()
     .from(conversations)
     .where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId)))
-    .get()
+    .limit(1)
+  return row
 }
 
-export function conversationHistory(conversationId: string, limit = 24) {
-  const rows = db
+export async function conversationHistory(conversationId: string, limit = 24) {
+  const rows = await db
     .select({
       role: conversationMessages.role,
       content: conversationMessages.content,
@@ -36,7 +37,6 @@ export function conversationHistory(conversationId: string, limit = 24) {
     .where(eq(conversationMessages.conversationId, conversationId))
     .orderBy(desc(conversationMessages.seq))
     .limit(limit)
-    .all()
 
   return rows.reverse().map(({ role, content }) => ({ role, content }))
 }
@@ -53,7 +53,6 @@ export function conversationTranscript(conversationId: string) {
     .from(conversationMessages)
     .where(eq(conversationMessages.conversationId, conversationId))
     .orderBy(asc(conversationMessages.seq))
-    .all()
 }
 
 export function conversationCorrections(conversationId: string) {
@@ -62,16 +61,20 @@ export function conversationCorrections(conversationId: string) {
     .from(corrections)
     .where(eq(corrections.conversationId, conversationId))
     .orderBy(asc(corrections.createdAt))
-    .all()
 }
 
 /** Builds the system prompt for a turn from the learner's live profile. */
-export function buildPromptFor(
+export async function buildPromptFor(
   userId: string,
   learnerName: string,
-  conversation: { topicId: string | null; topicLabel: string; customBrief: string | null; level: string },
+  conversation: {
+    topicId: string | null
+    topicLabel: string
+    customBrief: string | null
+    level: string
+  },
 ) {
-  const profile = db.select().from(profiles).where(eq(profiles.userId, userId)).get()
+  const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
   const topic = conversation.topicId ? TOPIC_BY_ID.get(conversation.topicId) : undefined
 
   const brief =
@@ -79,14 +82,15 @@ export function buildPromptFor(
     topic?.brief ||
     `Have a natural conversation about ${conversation.topicLabel}.`
 
-  const studying = db
-    .select({ word: vocabulary.word })
-    .from(vocabulary)
-    .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning')))
-    .orderBy(desc(vocabulary.createdAt))
-    .limit(20)
-    .all()
-    .map((row) => row.word)
+  const [studying, focusMistakes] = await Promise.all([
+    db
+      .select({ word: vocabulary.word })
+      .from(vocabulary)
+      .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning')))
+      .orderBy(desc(vocabulary.createdAt))
+      .limit(20),
+    topMistakes(userId, 6),
+  ])
 
   return buildTeacherPrompt({
     learnerName,
@@ -95,18 +99,18 @@ export function buildPromptFor(
     topicBrief: brief,
     mainGoal: profile?.mainGoal ?? null,
     interests: profile?.interests ?? [],
-    focusMistakes: topMistakes(userId, 6),
-    activeVocabulary: studying,
+    focusMistakes,
+    activeVocabulary: studying.map((row) => row.word),
   })
 }
 
-export function nextSeq(conversationId: string) {
-  const row = db
+export async function nextSeq(conversationId: string) {
+  const [row] = await db
     .select({ max: sql<number>`coalesce(max(${conversationMessages.seq}), -1)` })
     .from(conversationMessages)
     .where(eq(conversationMessages.conversationId, conversationId))
-    .get()
-  return (row?.max ?? -1) + 1
+
+  return Number(row?.max ?? -1) + 1
 }
 
 export type StoredMessage = {
@@ -117,15 +121,15 @@ export type StoredMessage = {
   createdAt: Date
 }
 
-export function appendMessage(args: {
+export async function appendMessage(args: {
   conversationId: string
   userId: string
   role: 'user' | 'assistant'
   content: string
   seq: number
   audioMs?: number | null
-}): StoredMessage {
-  return db
+}): Promise<StoredMessage> {
+  const [row] = await db
     .insert(conversationMessages)
     .values({
       conversationId: args.conversationId,
@@ -142,10 +146,11 @@ export function appendMessage(args: {
       seq: conversationMessages.seq,
       createdAt: conversationMessages.createdAt,
     })
-    .get() as StoredMessage
+
+  return row as StoredMessage
 }
 
-export function saveCorrections(args: {
+export async function saveCorrections(args: {
   userId: string
   conversationId: string
   messageId: string
@@ -169,5 +174,4 @@ export function saveCorrections(args: {
       })),
     )
     .returning()
-    .all()
 }

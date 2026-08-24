@@ -15,7 +15,7 @@ import { CATEGORY_LABELS, cn, formatRelative } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'My mistakes' }
 
-const STATUS_TONE = { open: 'rose', improving: 'amber', resolved: 'brand' } as const
+const STATUS_TONE = { open: 'danger', improving: 'neutral', resolved: 'accent' } as const
 
 export default async function MistakesPage({
   searchParams,
@@ -25,18 +25,17 @@ export default async function MistakesPage({
   const user = await requireUser()
   const { open, category } = await searchParams
 
-  const rows = db
+  const rows = await db
     .select()
     .from(mistakes)
     .where(eq(mistakes.userId, user.id))
     .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
-    .all()
 
   const filtered = category ? rows.filter((row) => row.category === category) : rows
   const opened = open ? rows.find((row) => row.id === open) : undefined
 
   const occurrences = opened
-    ? db
+    ? await db
         .select({
           id: mistakeOccurrences.id,
           sentence: mistakeOccurrences.sentence,
@@ -54,7 +53,6 @@ export default async function MistakesPage({
         )
         .orderBy(desc(mistakeOccurrences.createdAt))
         .limit(5)
-        .all()
     : []
 
   const byCategory = CORRECTION_CATEGORIES.map((value) => ({
@@ -82,7 +80,7 @@ export default async function MistakesPage({
             action={
               <Link
                 href="/speak"
-                className="inline-flex items-center gap-2 rounded-pill bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white dark:bg-brand-500 dark:text-[#04201d]"
+                className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
                 Start a conversation
               </Link>
@@ -144,7 +142,7 @@ export default async function MistakesPage({
                       {opened.original}
                     </span>
                     <span className="mx-2.5 text-faint">→</span>
-                    <span className="font-semibold text-brand-700 dark:text-brand-300">
+                    <span className="font-semibold text-brand-600 dark:text-brand-400">
                       {opened.corrected}
                     </span>
                   </p>
@@ -167,7 +165,7 @@ export default async function MistakesPage({
 
               {occurrences.length > 0 && (
                 <div className="mt-5 border-t border-line pt-4">
-                  <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint">
+                  <p className="mb-3 text-[0.75rem] font-medium text-muted">
                     Last occurrences
                   </p>
                   <ul className="space-y-2.5">
@@ -208,7 +206,7 @@ export default async function MistakesPage({
           <div className="mt-6 overflow-x-auto rounded-card border border-line bg-surface scroll-slim">
             <table className="w-full min-w-[34rem] text-left">
               <thead>
-                <tr className="border-b border-line text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-faint">
+                <tr className="border-b border-line text-[0.75rem] font-medium text-muted">
                   <th className="px-4 py-3 sm:px-5">Mistake</th>
                   <th className="px-4 py-3">Correct form</th>
                   <th className="hidden px-4 py-3 sm:table-cell">Category</th>
@@ -237,7 +235,7 @@ export default async function MistakesPage({
                       {mistake.corrected}
                     </td>
                     <td className="hidden px-4 py-3.5 sm:table-cell">
-                      <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-faint">
+                      <span className="text-[0.75rem] font-medium text-faint">
                         {CATEGORY_LABELS[mistake.category]}
                       </span>
                     </td>
@@ -246,10 +244,8 @@ export default async function MistakesPage({
                         className={cn(
                           'inline-flex min-w-8 justify-center rounded-pill px-2 py-0.5 text-[0.75rem] font-bold',
                           mistake.occurrences >= 5
-                            ? 'bg-rose/12 text-rose'
-                            : mistake.occurrences >= 3
-                              ? 'bg-amber/12 text-amber'
-                              : 'bg-surface-2 text-muted',
+                            ? 'bg-rose/10 text-rose'
+                            : 'bg-surface-2 text-muted',
                         )}
                       >
                         {mistake.occurrences}

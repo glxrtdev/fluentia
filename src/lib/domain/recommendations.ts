@@ -39,20 +39,43 @@ const PAST_TENSE_HINTS = /\b(went|was|were|did|had|yesterday|last week|past tens
  * Turns the learner's own history into a next step. Everything here reads real
  * rows — there is no placeholder path.
  */
-export function recommendNext(userId: string): Recommendation | null {
-  const profile = db.select().from(profiles).where(eq(profiles.userId, userId)).get()
-  if (!profile) return null
-
-  const recentTopics = new Set(
+export async function recommendNext(userId: string): Promise<Recommendation | null> {
+  /*
+   * The rules below short-circuit, but asking for their inputs one at a time
+   * meant five sequential round trips to a database on another continent.
+   * Fetching all five at once costs one trip and the same rows.
+   */
+  const [profileRows, recent, worstRows, recentReports, studyingRows] = await Promise.all([
+    db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1),
     db
       .select({ topicId: conversations.topicId })
       .from(conversations)
       .where(and(eq(conversations.userId, userId), eq(conversations.status, 'completed')))
       .orderBy(desc(conversations.startedAt))
-      .limit(4)
-      .all()
-      .map((row) => row.topicId)
-      .filter((value): value is string => Boolean(value)),
+      .limit(4),
+    db
+      .select()
+      .from(mistakes)
+      .where(and(eq(mistakes.userId, userId), eq(mistakes.status, 'open')))
+      .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
+      .limit(1),
+    db
+      .select({ speaking: sessionReports.speaking, vocabulary: sessionReports.vocabulary })
+      .from(sessionReports)
+      .where(eq(sessionReports.userId, userId))
+      .orderBy(desc(sessionReports.createdAt))
+      .limit(3),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vocabulary)
+      .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning'))),
+  ])
+
+  const profile = profileRows[0]
+  if (!profile) return null
+
+  const recentTopics = new Set(
+    recent.map((row) => row.topicId).filter((value): value is string => Boolean(value)),
   )
 
   const pick = (topicId: string, reason: string, minutes = profile.dailyMinutesGoal) => {
@@ -62,13 +85,7 @@ export function recommendNext(userId: string): Recommendation | null {
   }
 
   // 1. A recurring mistake that keeps coming back is the most useful signal.
-  const worst = db
-    .select()
-    .from(mistakes)
-    .where(and(eq(mistakes.userId, userId), eq(mistakes.status, 'open')))
-    .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
-    .limit(1)
-    .get()
+  const worst = worstRows[0]
 
   if (worst && worst.occurrences >= 2) {
     const isPast = PAST_TENSE_HINTS.test(`${worst.corrected} ${worst.explanation ?? ''}`)
@@ -85,16 +102,10 @@ export function recommendNext(userId: string): Recommendation | null {
   }
 
   // 2. Strong recent scores earn a harder conversation.
-  const recent = db
-    .select({ speaking: sessionReports.speaking, vocabulary: sessionReports.vocabulary })
-    .from(sessionReports)
-    .where(eq(sessionReports.userId, userId))
-    .orderBy(desc(sessionReports.createdAt))
-    .limit(3)
-    .all()
 
-  if (recent.length >= 2) {
-    const average = recent.reduce((total, row) => total + row.speaking, 0) / recent.length
+  if (recentReports.length >= 2) {
+    const average =
+      recentReports.reduce((total, row) => total + row.speaking, 0) / recentReports.length
     if (average >= 80) {
       const harder = ['negotiation', 'leadership', 'future-technology', 'entrepreneurship'].find(
         (topicId) => !recentTopics.has(topicId),
@@ -120,18 +131,14 @@ export function recommendNext(userId: string): Recommendation | null {
   }
 
   // 4. Reuse the words they are studying.
-  const studying = db
-    .select({ count: sql<number>`count(*)` })
-    .from(vocabulary)
-    .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning')))
-    .get()
+  const studying = studyingRows[0]
 
   if ((studying?.count ?? 0) >= 5) {
     const topic = TOPICS.find((candidate) => !recentTopics.has(candidate.id))
     if (topic) {
       return pick(
         topic.id,
-        `You have ${studying?.count} words waiting to be used. The teacher will slip them into this conversation.`,
+        `You have ${studying.count} words waiting to be used. The teacher will slip them into this conversation.`,
       )
     }
   }
@@ -144,48 +151,53 @@ export function recommendNext(userId: string): Recommendation | null {
   )
 }
 
-/** Simple counts the dashboard and profile pages both need. */
-export function learningSnapshot(userId: string) {
-  const wordCount = db
-    .select({
-      total: sql<number>`count(*)`,
-      learned: sql<number>`sum(case when ${vocabulary.status} = 'learned' then 1 else 0 end)`,
-      learning: sql<number>`sum(case when ${vocabulary.status} = 'learning' then 1 else 0 end)`,
-      review: sql<number>`sum(case when ${vocabulary.status} = 'review' then 1 else 0 end)`,
-    })
-    .from(vocabulary)
-    .where(eq(vocabulary.userId, userId))
-    .get()
+/**
+ * Simple counts the dashboard and profile pages both need. Every aggregate is
+ * cast explicitly: Postgres returns count/sum as bigint, which arrives as a
+ * string unless it is narrowed here.
+ */
+export async function learningSnapshot(userId: string) {
+  const [wordRows, mistakeRows, scoreRows] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)::int`,
+        learned: sql<number>`coalesce(sum(case when ${vocabulary.status} = 'learned' then 1 else 0 end), 0)::int`,
+        learning: sql<number>`coalesce(sum(case when ${vocabulary.status} = 'learning' then 1 else 0 end), 0)::int`,
+        review: sql<number>`coalesce(sum(case when ${vocabulary.status} = 'review' then 1 else 0 end), 0)::int`,
+      })
+      .from(vocabulary)
+      .where(eq(vocabulary.userId, userId)),
+    db
+      .select({
+        tracked: sql<number>`count(*)::int`,
+        open: sql<number>`coalesce(sum(case when ${mistakes.status} = 'open' then 1 else 0 end), 0)::int`,
+        resolved: sql<number>`coalesce(sum(case when ${mistakes.status} = 'resolved' then 1 else 0 end), 0)::int`,
+        occurrences: sql<number>`coalesce(sum(${mistakes.occurrences}), 0)::int`,
+      })
+      .from(mistakes)
+      .where(eq(mistakes.userId, userId)),
+    db
+      .select({
+        speaking: sql<number | null>`round(avg(${sessionReports.speaking}))::int`,
+        grammar: sql<number | null>`round(avg(${sessionReports.grammar}))::int`,
+        vocabulary: sql<number | null>`round(avg(${sessionReports.vocabulary}))::int`,
+        fluency: sql<number | null>`round(avg(${sessionReports.fluency}))::int`,
+        sessions: sql<number>`count(*)::int`,
+      })
+      .from(sessionReports)
+      .where(eq(sessionReports.userId, userId)),
+  ])
 
-  const mistakeCount = db
-    .select({
-      tracked: sql<number>`count(*)`,
-      open: sql<number>`sum(case when ${mistakes.status} = 'open' then 1 else 0 end)`,
-      resolved: sql<number>`sum(case when ${mistakes.status} = 'resolved' then 1 else 0 end)`,
-      occurrences: sql<number>`coalesce(sum(${mistakes.occurrences}), 0)`,
-    })
-    .from(mistakes)
-    .where(eq(mistakes.userId, userId))
-    .get()
-
-  const scores = db
-    .select({
-      speaking: sql<number>`round(avg(${sessionReports.speaking}))`,
-      grammar: sql<number>`round(avg(${sessionReports.grammar}))`,
-      vocabulary: sql<number>`round(avg(${sessionReports.vocabulary}))`,
-      fluency: sql<number>`round(avg(${sessionReports.fluency}))`,
-      sessions: sql<number>`count(*)`,
-    })
-    .from(sessionReports)
-    .where(eq(sessionReports.userId, userId))
-    .get()
+  const words = wordRows[0]
+  const mistakeCount = mistakeRows[0]
+  const scores = scoreRows[0]
 
   return {
     words: {
-      total: wordCount?.total ?? 0,
-      learned: wordCount?.learned ?? 0,
-      learning: wordCount?.learning ?? 0,
-      review: wordCount?.review ?? 0,
+      total: words?.total ?? 0,
+      learned: words?.learned ?? 0,
+      learning: words?.learning ?? 0,
+      review: words?.review ?? 0,
     },
     mistakes: {
       tracked: mistakeCount?.tracked ?? 0,
@@ -204,44 +216,31 @@ export function learningSnapshot(userId: string) {
 }
 
 /** Weekly goal progress computed from practice rows, never stored twice. */
-export function weeklyProgress(userId: string, weekStart: string) {
-  const sessions = db
-    .select({
-      sessions: sql<number>`coalesce(sum(case when ${conversations.status} = 'completed' then 1 else 0 end), 0)`,
-      seconds: sql<number>`coalesce(sum(${conversations.durationSeconds}), 0)`,
-    })
-    .from(conversations)
-    .where(
-      and(
-        eq(conversations.userId, userId),
-        gte(conversations.startedAt, new Date(`${weekStart}T00:00:00`)),
-      ),
-    )
-    .get()
+export async function weeklyProgress(userId: string, weekStart: string) {
+  const since = new Date(`${weekStart}T00:00:00`)
 
-  const words = db
-    .select({ count: sql<number>`count(*)` })
-    .from(vocabulary)
-    .where(
-      and(eq(vocabulary.userId, userId), gte(vocabulary.createdAt, new Date(`${weekStart}T00:00:00`))),
-    )
-    .get()
-
-  const reviewed = db
-    .select({ count: sql<number>`count(*)` })
-    .from(mistakes)
-    .where(
-      and(
-        eq(mistakes.userId, userId),
-        gte(mistakes.lastSeenAt, new Date(`${weekStart}T00:00:00`)),
-      ),
-    )
-    .get()
+  const [sessionRows, wordRows, reviewedRows] = await Promise.all([
+    db
+      .select({
+        sessions: sql<number>`coalesce(sum(case when ${conversations.status} = 'completed' then 1 else 0 end), 0)::int`,
+        seconds: sql<number>`coalesce(sum(${conversations.durationSeconds}), 0)::int`,
+      })
+      .from(conversations)
+      .where(and(eq(conversations.userId, userId), gte(conversations.startedAt, since))),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(vocabulary)
+      .where(and(eq(vocabulary.userId, userId), gte(vocabulary.createdAt, since))),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(mistakes)
+      .where(and(eq(mistakes.userId, userId), gte(mistakes.lastSeenAt, since))),
+  ])
 
   return {
-    weekly_sessions: sessions?.sessions ?? 0,
-    weekly_minutes: Math.round((sessions?.seconds ?? 0) / 60),
-    weekly_words: words?.count ?? 0,
-    weekly_mistakes: reviewed?.count ?? 0,
+    weekly_sessions: sessionRows[0]?.sessions ?? 0,
+    weekly_minutes: Math.round((sessionRows[0]?.seconds ?? 0) / 60),
+    weekly_words: wordRows[0]?.count ?? 0,
+    weekly_mistakes: reviewedRows[0]?.count ?? 0,
   }
 }

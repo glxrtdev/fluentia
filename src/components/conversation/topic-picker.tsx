@@ -54,7 +54,7 @@ export function TopicPicker({
   if (!hasApiKey) {
     return (
       <div className="rounded-card border border-line bg-surface p-8 text-center">
-        <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-amber/12 text-amber">
+        <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-brand-500/10 text-brand-600 dark:text-brand-400">
           <KeyRound className="size-5" />
         </span>
         <h2 className="mt-4 text-[1.0625rem] font-semibold text-ink">
@@ -66,7 +66,7 @@ export function TopicPicker({
         </p>
         <Link
           href="/settings"
-          className="mt-6 inline-flex items-center gap-2 rounded-pill bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 dark:bg-brand-500 dark:text-[#04201d]"
+          className="mt-6 inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
         >
           Open AI configuration
           <ArrowRight className="size-4" />
@@ -200,7 +200,7 @@ export function TopicPicker({
 
       {/* Level */}
       <div>
-        <p className="mb-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+        <p className="mb-2.5 text-[0.75rem] font-medium text-muted">
           Difficulty for this session
         </p>
         <div className="flex flex-wrap gap-2">

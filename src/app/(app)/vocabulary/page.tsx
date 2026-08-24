@@ -14,12 +14,11 @@ export const metadata: Metadata = { title: 'Vocabulary' }
 export default async function VocabularyPage() {
   const user = await requireUser()
 
-  const words = db
+  const words = await db
     .select()
     .from(vocabulary)
     .where(eq(vocabulary.userId, user.id))
     .orderBy(desc(vocabulary.createdAt))
-    .all()
 
   return (
     <PageShell>

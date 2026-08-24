@@ -196,7 +196,7 @@ export function OnboardingFlow({ name }: { name: string }) {
                       className={cn(
                         'rounded-pill border px-3.5 py-2 text-[0.8125rem] font-medium transition-all',
                         selected
-                          ? 'border-brand-500 bg-brand-500/10 text-brand-700 dark:text-brand-300'
+                          ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400'
                           : 'border-line bg-surface text-muted hover:border-line-strong hover:text-ink',
                       )}
                     >

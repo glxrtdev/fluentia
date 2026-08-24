@@ -29,7 +29,7 @@ export function TeacherOrb({ phase, level }: { phase: Phase; level: number }) {
             'absolute inset-0 rounded-full transition-opacity duration-500',
             phase === 'listening' && 'bg-brand-500/25 animate-halo',
             phase === 'speaking' && 'bg-brand-500/20 animate-halo',
-            phase === 'thinking' && 'bg-iris/15',
+            phase === 'thinking' && 'bg-brand-500/15',
             (phase === 'idle' || phase === 'ready') && 'bg-brand-500/8',
           )}
         />
@@ -50,7 +50,7 @@ export function TeacherOrb({ phase, level }: { phase: Phase; level: number }) {
               <span
                 key={index}
                 className={cn(
-                  'w-[0.3125rem] rounded-pill bg-linear-to-t from-brand-600 to-brand-400 transition-[height] duration-100',
+                  'w-[0.28rem] rounded-pill bg-brand-500 transition-[height] duration-100',
                   phase === 'speaking' && 'animate-bar',
                   phase === 'thinking' && 'opacity-40',
                 )}

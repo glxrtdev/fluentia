@@ -12,7 +12,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { id } = await params
-  const conversation = getOwnedConversation(user.id, id)
+  const conversation = await getOwnedConversation(user.id, id)
   if (!conversation) return Response.json({ error: 'Conversation not found' }, { status: 404 })
 
   const limit = rateLimit(`end:${user.id}`, 20, 5 * 60_000)
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const result = await finishConversation({
-      ai: getUserAi(user.id),
+      ai: await getUserAi(user.id),
       userId: user.id,
       learnerName: user.name,
       conversationId: conversation.id,

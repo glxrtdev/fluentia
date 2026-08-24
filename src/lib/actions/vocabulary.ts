@@ -21,18 +21,19 @@ export async function addWord(input: unknown): Promise<VocabState> {
   const data = parsed.data
   const word = data.word.toLowerCase()
 
-  const existing = db
+  const [existing] = await db
     .select({ id: vocabulary.id })
     .from(vocabulary)
     .where(and(eq(vocabulary.userId, user.id), eq(vocabulary.word, word)))
-    .get()
+    .limit(1)
 
   if (existing) {
     revalidatePath('/vocabulary')
     return { ok: true, word, error: 'Already in your vocabulary.' }
   }
 
-  db.insert(vocabulary)
+  await db
+    .insert(vocabulary)
     .values({
       userId: user.id,
       word,
@@ -46,10 +47,9 @@ export async function addWord(input: unknown): Promise<VocabState> {
       source: data.source ?? 'dictionary',
       status: 'learning',
     })
-    .run()
 
-  addXp(user.id, XP.wordLearned)
-  syncAchievements(user.id)
+  await addXp(user.id, XP.wordLearned)
+  await syncAchievements(user.id)
 
   revalidatePath('/vocabulary')
   revalidatePath('/dashboard')
@@ -62,7 +62,7 @@ export async function setWordStatus(id: string, status: string): Promise<VocabSt
   const parsed = vocabularyStatusSchema.safeParse({ status })
   if (!parsed.success) return { error: 'Unknown status.' }
 
-  const updated = db
+  const [updated] = await db
     .update(vocabulary)
     .set({
       status: parsed.data.status,
@@ -72,11 +72,10 @@ export async function setWordStatus(id: string, status: string): Promise<VocabSt
     })
     .where(and(eq(vocabulary.id, id), eq(vocabulary.userId, user.id)))
     .returning({ id: vocabulary.id })
-    .get()
 
   if (!updated) return { error: 'Word not found.' }
 
-  if (parsed.data.status === 'learned') syncAchievements(user.id)
+  if (parsed.data.status === 'learned') await syncAchievements(user.id)
 
   revalidatePath('/vocabulary')
   return { ok: true }
@@ -85,9 +84,9 @@ export async function setWordStatus(id: string, status: string): Promise<VocabSt
 export async function removeWord(id: string): Promise<VocabState> {
   const user = await requireUser()
 
-  db.delete(vocabulary)
+  await db
+    .delete(vocabulary)
     .where(and(eq(vocabulary.id, id), eq(vocabulary.userId, user.id)))
-    .run()
 
   revalidatePath('/vocabulary')
   return { ok: true }

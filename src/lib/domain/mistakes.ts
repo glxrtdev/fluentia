@@ -32,7 +32,7 @@ export type RecordableCorrection = {
  * Folds live corrections into the user's recurring-mistake ledger. Called on
  * every turn so `My mistakes` reflects reality even if a session is abandoned.
  */
-export function recordMistakes(
+export async function recordMistakes(
   userId: string,
   conversationId: string | null,
   items: RecordableCorrection[],
@@ -42,7 +42,7 @@ export function recordMistakes(
     if (signature.endsWith('>')) continue
 
     const now = new Date()
-    const row = db
+    const [row] = await db
       .insert(mistakes)
       .values({
         userId,
@@ -66,16 +66,13 @@ export function recordMistakes(
         },
       })
       .returning({ id: mistakes.id })
-      .get()
 
-    db.insert(mistakeOccurrences)
-      .values({
-        mistakeId: row.id,
-        userId,
-        conversationId,
-        sentence: item.sentence ?? null,
-      })
-      .run()
+    await db.insert(mistakeOccurrences).values({
+      mistakeId: row.id,
+      userId,
+      conversationId,
+      sentence: item.sentence ?? null,
+    })
   }
 }
 
@@ -92,5 +89,4 @@ export function topMistakes(userId: string, limit = 6) {
     .where(and(eq(mistakes.userId, userId), eq(mistakes.status, 'open')))
     .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
     .limit(limit)
-    .all()
 }

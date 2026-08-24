@@ -16,22 +16,22 @@ export async function setMistakeStatus(id: string, status: string) {
   const parsed = mistakeStatusSchema.safeParse({ status })
   if (!parsed.success) return { error: 'Unknown status.' }
 
-  const before = db
+  const [before] = await db
     .select({ status: mistakes.status })
     .from(mistakes)
     .where(and(eq(mistakes.id, id), eq(mistakes.userId, user.id)))
-    .get()
+    .limit(1)
   if (!before) return { error: 'Mistake not found.' }
 
-  db.update(mistakes)
+  await db
+    .update(mistakes)
     .set({ status: parsed.data.status })
     .where(and(eq(mistakes.id, id), eq(mistakes.userId, user.id)))
-    .run()
 
   // Resolving one is worth XP, but only the first time it happens.
   if (parsed.data.status === 'resolved' && before.status !== 'resolved') {
-    addXp(user.id, XP.mistakeResolved)
-    syncAchievements(user.id)
+    await addXp(user.id, XP.mistakeResolved)
+    await syncAchievements(user.id)
   }
 
   revalidatePath('/mistakes')

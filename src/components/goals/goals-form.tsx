@@ -88,7 +88,7 @@ export function GoalsForm({
                 <Progress
                   value={current}
                   total={target}
-                  tone={done ? 'brand' : 'iris'}
+                  tone={done ? 'accent' : 'neutral'}
                   className="mt-3"
                   label={meta.label}
                 />

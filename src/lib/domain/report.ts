@@ -7,7 +7,12 @@ import { conversations, profiles, sessionReports } from '@/lib/db/schema'
 import type { EnglishLevel } from '@/lib/db/schema'
 import { ENGLISH_LEVELS } from '@/lib/db/schema'
 import { conversationCorrections, conversationTranscript } from '@/lib/domain/conversation'
-import { registerPractice, syncAchievements, XP } from '@/lib/domain/gamification'
+import {
+  registerPractice,
+  syncAchievements,
+  XP,
+  type UnlockedAchievement,
+} from '@/lib/domain/gamification'
 import { AiError, type UserAi } from '@/lib/openai/client'
 import { buildReportPrompt, REPORT_SCHEMA } from '@/lib/openai/prompts'
 import { clamp } from '@/lib/utils'
@@ -71,32 +76,40 @@ export async function finishConversation(args: {
   durationSeconds: number
   day: string
 }) {
-  const conversation = db
+  const [conversation] = await db
     .select()
     .from(conversations)
     .where(eq(conversations.id, args.conversationId))
-    .get()
+    .limit(1)
 
   if (!conversation || conversation.userId !== args.userId) {
     throw new AiError('Conversation not found.', 404)
   }
 
-  const existing = db
+  const [existing] = await db
     .select({ id: sessionReports.id })
     .from(sessionReports)
     .where(eq(sessionReports.conversationId, conversation.id))
-    .get()
-  if (existing) return { reportId: existing.id, unlocked: [] }
+    .limit(1)
+  if (existing) return { reportId: existing.id, unlocked: [] as UnlockedAchievement[] }
 
-  const transcript = conversationTranscript(conversation.id)
+  const [transcript, corrections] = await Promise.all([
+    conversationTranscript(conversation.id),
+    conversationCorrections(conversation.id),
+  ])
   const userTurns = transcript.filter((message) => message.role === 'user')
-  const corrections = conversationCorrections(conversation.id)
 
   if (userTurns.length === 0) {
     throw new AiError('There is nothing to report on yet — say something first.', 400)
   }
 
-  const profile = db.select().from(profiles).where(eq(profiles.userId, args.userId)).get()!
+  const [profile] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.userId, args.userId))
+    .limit(1)
+  if (!profile) throw new AiError('Your profile is missing.', 500)
+
   const wordsSpoken = userTurns.reduce(
     (total, message) => total + message.content.split(/\s+/).filter(Boolean).length,
     0,
@@ -156,7 +169,7 @@ export async function finishConversation(args: {
       ? raw.estimated_level
       : (profile.estimatedCefr ?? 'B1')
 
-  const report = db
+  const [report] = await db
     .insert(sessionReports)
     .values({
       conversationId: conversation.id,
@@ -178,16 +191,14 @@ export async function finishConversation(args: {
       wordsSpoken,
     })
     .returning({ id: sessionReports.id })
-    .get()
 
-  db.update(conversations)
+  await db.update(conversations)
     .set({
       status: 'completed',
       endedAt: new Date(),
       durationSeconds: Math.max(0, Math.round(args.durationSeconds)),
     })
     .where(eq(conversations.id, conversation.id))
-    .run()
 
   // The profile is the memory the next conversation reads from.
   const strengths = stringList(raw.strengths, 3)
@@ -198,7 +209,7 @@ export async function finishConversation(args: {
       ? nudgeLevel(profile.level, CEFR_TO_LEVEL[estimatedCefr] ?? profile.level)
       : profile.level
 
-  db.update(profiles)
+  await db.update(profiles)
     .set({
       estimatedCefr,
       level: nextLevel,
@@ -208,10 +219,9 @@ export async function finishConversation(args: {
       updatedAt: new Date(),
     })
     .where(eq(profiles.userId, args.userId))
-    .run()
 
   const minutes = Math.max(0, Math.round(args.durationSeconds / 60))
-  registerPractice({
+  await registerPractice({
     userId: args.userId,
     kind: 'conversation',
     seconds: args.durationSeconds,
@@ -222,5 +232,5 @@ export async function finishConversation(args: {
     day: args.day,
   })
 
-  return { reportId: report.id, unlocked: syncAchievements(args.userId) }
+  return { reportId: report.id, unlocked: await syncAchievements(args.userId) }
 }

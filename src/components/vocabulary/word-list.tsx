@@ -29,9 +29,9 @@ const FILTERS = [
 ] as const
 
 const STATUS_TONE = {
-  learning: 'iris',
-  review: 'amber',
-  learned: 'brand',
+  learning: 'neutral',
+  review: 'neutral',
+  learned: 'accent',
 } as const
 
 export function WordList({ words }: { words: SavedWord[] }) {
@@ -150,7 +150,7 @@ export function WordList({ words }: { words: SavedWord[] }) {
                     type="button"
                     onClick={() => act(word.id, () => setWordStatus(word.id, 'review'))}
                     aria-label={`Move ${word.word} to review`}
-                    className="rounded-lg p-2 text-faint transition-colors hover:bg-amber/10 hover:text-amber"
+                    className="rounded-lg p-2 text-faint transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:text-brand-400"
                   >
                     <RotateCcw className="size-4" />
                   </button>

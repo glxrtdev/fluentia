@@ -141,7 +141,7 @@ export function WordSearch() {
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <Badge tone="iris" className="mb-1.5">
+                  <Badge tone="accent" className="mb-1.5">
                     {definition.partOfSpeech}
                   </Badge>
                   <p className="text-[0.9375rem] leading-relaxed text-ink">
@@ -159,7 +159,7 @@ export function WordSearch() {
 
           {result.related.length > 0 && (
             <div className="mt-5 border-t border-line pt-4">
-              <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint">
+              <p className="mb-2 text-[0.75rem] font-medium text-muted">
                 Related words
               </p>
               <div className="flex flex-wrap gap-1.5">

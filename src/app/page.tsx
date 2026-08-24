@@ -53,7 +53,7 @@ export default async function LandingPage() {
         {/* Hero */}
         <section className="grid items-center gap-14 py-14 sm:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-10">
           <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted">
+            <span className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-3 py-1.5 text-[0.75rem] font-medium text-muted">
               <span className="size-1.5 rounded-full bg-brand-500" />
               Voice-first English
             </span>
@@ -96,13 +96,13 @@ export default async function LandingPage() {
 
             <div className="space-y-4 py-5 text-[0.9375rem] leading-relaxed">
               <div>
-                <p className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint">
+                <p className="mb-1 text-[0.75rem] font-medium text-muted">
                   Teacher
                 </p>
                 <p className="text-ink">Tell me about your current job.</p>
               </div>
               <div>
-                <p className="mb-1 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint">
+                <p className="mb-1 text-[0.75rem] font-medium text-muted">
                   You
                 </p>
                 <p className="text-ink-soft">
@@ -112,21 +112,21 @@ export default async function LandingPage() {
             </div>
 
             <div className="rounded-xl border border-line bg-surface-2 p-4">
-              <p className="mb-3 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint">
+              <p className="mb-3 text-[0.75rem] font-medium text-muted">
                 Feedback
               </p>
               <div className="space-y-3 text-sm">
                 <p>
                   <span className="text-rose line-through decoration-rose/40">I work in</span>
                   <span className="mx-1.5 text-faint">→</span>
-                  <span className="font-semibold text-brand-700 dark:text-brand-300">
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">
                     I&rsquo;ve worked at
                   </span>
                 </p>
                 <p>
                   <span className="text-rose line-through decoration-rose/40">treat data</span>
                   <span className="mx-1.5 text-faint">→</span>
-                  <span className="font-semibold text-brand-700 dark:text-brand-300">
+                  <span className="font-semibold text-brand-600 dark:text-brand-400">
                     analyse data
                   </span>
                 </p>
@@ -210,18 +210,18 @@ export default async function LandingPage() {
 
         {/* CTA */}
         <section className="border-t border-line py-16 sm:py-24">
-          <div className="grain overflow-hidden rounded-card border border-line bg-linear-to-br from-brand-600 to-brand-800 px-6 py-14 text-center sm:px-12">
-            <h2 className="display text-3xl text-white sm:text-[2.75rem]">
+          <div className="edge-glow overflow-hidden rounded-card bg-pitch px-6 py-16 text-center sm:px-12">
+            <h2 className="display text-3xl text-on-pitch sm:text-[2.5rem]">
               Your first conversation is one click away
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-[0.9375rem] leading-relaxed text-brand-100">
+            <p className="mx-auto mt-4 max-w-xl text-[0.9375rem] leading-relaxed text-white/60">
               Create an account, paste your own OpenAI key, pick a topic and start talking. Nothing
               is simulated — you speak, it listens.
             </p>
             <ButtonLink
               href="/signup"
               size="lg"
-              className="mt-8 bg-white text-brand-800 hover:bg-brand-50 dark:bg-white dark:text-brand-800"
+              className="mt-9"
             >
               Create my account
               <ArrowRight className="size-4" />

@@ -19,13 +19,15 @@ export default async function ConversationPage({
   const user = await requireUser()
   const { id } = await params
 
-  const conversation = getOwnedConversation(user.id, id)
+  const conversation = await getOwnedConversation(user.id, id)
   if (!conversation) notFound()
   // A finished session belongs to its report, not the room.
   if (conversation.status === 'completed') redirect(`/sessions/${conversation.id}`)
 
-  const messages = conversationTranscript(conversation.id)
-  const corrections = conversationCorrections(conversation.id)
+  const [messages, corrections] = await Promise.all([
+    conversationTranscript(conversation.id),
+    conversationCorrections(conversation.id),
+  ])
 
   const elapsed = Math.min(
     4 * 3600,

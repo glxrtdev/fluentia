@@ -41,8 +41,12 @@ export type UserAi = {
  * Builds an OpenAI client from the calling user's own key. The plaintext key
  * only ever exists inside this request — it is never returned to the browser.
  */
-export function getUserAi(userId: string): UserAi {
-  const settings = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get()
+export async function getUserAi(userId: string): Promise<UserAi> {
+  const [settings] = await db
+    .select()
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1)
   if (!settings?.openaiKeyCipher) throw new MissingApiKeyError()
 
   let apiKey: string

@@ -30,7 +30,7 @@ export function CardHeader({
   return (
     <div className={cn('mb-4 flex items-start justify-between gap-4', className)}>
       <div className="min-w-0">
-        <h2 className="text-[0.9375rem] font-semibold text-ink">{title}</h2>
+        <h2 className="text-[0.9375rem] font-medium tracking-[-0.015em] text-ink">{title}</h2>
         {hint && <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">{hint}</p>}
       </div>
       {action}
@@ -48,7 +48,7 @@ export function SectionTitle({
   return (
     <h2
       className={cn(
-        'text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint',
+        'text-[0.8125rem] font-medium text-muted',
         className,
       )}
     >

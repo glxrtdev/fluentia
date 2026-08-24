@@ -21,10 +21,11 @@ async function clientKey(prefix: string) {
 }
 
 /** Sensible starting goals so the dashboard is meaningful from day one. */
-function seedDefaults(userId: string) {
-  db.insert(profiles).values({ userId }).onConflictDoNothing().run()
-  db.insert(userSettings).values({ userId }).onConflictDoNothing().run()
-  db.insert(goals)
+async function seedDefaults(userId: string) {
+  await db.insert(profiles).values({ userId }).onConflictDoNothing()
+  await db.insert(userSettings).values({ userId }).onConflictDoNothing()
+  await db
+    .insert(goals)
     .values([
       { userId, kind: 'weekly_sessions' as const, target: 5 },
       { userId, kind: 'weekly_minutes' as const, target: 100 },
@@ -32,7 +33,6 @@ function seedDefaults(userId: string) {
       { userId, kind: 'weekly_mistakes' as const, target: 10 },
     ])
     .onConflictDoNothing()
-    .run()
 }
 
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -47,16 +47,19 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const { name, email, password } = parsed.data
-  const existing = db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()
+  const [existing] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1)
   if (existing) return { errors: { email: 'That email is already registered.' } }
 
-  const user = db
+  const [user] = await db
     .insert(users)
     .values({ name, email, passwordHash: hashPassword(password) })
     .returning({ id: users.id })
-    .get()
 
-  seedDefaults(user.id)
+  await seedDefaults(user.id)
   await createSession(user.id)
   redirect('/onboarding')
 }
@@ -71,12 +74,12 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   })
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
-  const user = db.select().from(users).where(eq(users.email, parsed.data.email)).get()
+  const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1)
   // Same message either way so the form never reveals which emails exist.
   const invalid = { errors: { form: 'Email or password is incorrect.' } }
   if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) return invalid
 
-  seedDefaults(user.id)
+  await seedDefaults(user.id)
   await createSession(user.id)
   redirect('/dashboard')
 }

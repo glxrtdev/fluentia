@@ -30,16 +30,18 @@ export default async function GoalsPage() {
   const profile = await getProfile(user.id)
 
   const today = localDay()
-  const progress = weeklyProgress(user.id, startOfWeek(today))
+  const [progress, rows, todayRows] = await Promise.all([
+    weeklyProgress(user.id, startOfWeek(today)),
+    db.select().from(goals).where(eq(goals.userId, user.id)),
+    db
+      .select({ seconds: streaks.seconds })
+      .from(streaks)
+      .where(and(eq(streaks.userId, user.id), eq(streaks.day, today)))
+      .limit(1),
+  ])
 
-  const rows = db.select().from(goals).where(eq(goals.userId, user.id)).all()
   const targets = Object.fromEntries(rows.map((row) => [row.kind, row.target]))
-
-  const todayRow = db
-    .select({ seconds: streaks.seconds })
-    .from(streaks)
-    .where(and(eq(streaks.userId, user.id), eq(streaks.day, today)))
-    .get()
+  const todayRow = todayRows[0]
 
   const todaySeconds = todayRow?.seconds ?? 0
   const dailyTargetSeconds = profile.dailyMinutesGoal * 60
@@ -56,7 +58,7 @@ export default async function GoalsPage() {
       <Card className="mt-8">
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+            <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-muted">
               <Timer className="size-3" />
               Today
             </p>
@@ -71,7 +73,7 @@ export default async function GoalsPage() {
               label="Streak"
               value={profile.streakCurrent}
               suffix="days"
-              icon={<Flame className="size-3 text-amber" />}
+              icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
             />
             <Stat label="Best" value={profile.streakLongest} suffix="days" />
           </div>
@@ -89,7 +91,7 @@ export default async function GoalsPage() {
       <Card className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+            <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-muted">
               <Target className="size-3" />
               Main goal
             </p>

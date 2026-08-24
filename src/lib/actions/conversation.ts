@@ -48,7 +48,7 @@ export async function startConversation(
   const profile = await getProfile(user.id)
   const level = parsed.data.level ?? profile.level
 
-  const conversation = db
+  const [conversation] = await db
     .insert(conversations)
     .values({
       userId: user.id,
@@ -60,11 +60,10 @@ export async function startConversation(
       status: 'active',
     })
     .returning({ id: conversations.id })
-    .get()
 
   try {
-    const ai = getUserAi(user.id)
-    const prompt = buildPromptFor(user.id, user.name, {
+    const ai = await getUserAi(user.id)
+    const prompt = await buildPromptFor(user.id, user.name, {
       topicId: topic?.id ?? null,
       topicLabel: topic?.label ?? custom!,
       customBrief: custom,
@@ -73,20 +72,20 @@ export async function startConversation(
 
     const opening = await generateTurn(ai, { systemPrompt: prompt, history: [], userText: null })
 
-    appendMessage({
+    await appendMessage({
       conversationId: conversation.id,
       userId: user.id,
       role: 'assistant',
       content: opening.reply,
-      seq: nextSeq(conversation.id),
+      seq: await nextSeq(conversation.id),
     })
   } catch (error) {
     // No opening line means no session: remove the empty shell we just created.
-    db.delete(conversations).where(eq(conversations.id, conversation.id)).run()
+    await db.delete(conversations).where(eq(conversations.id, conversation.id))
     return { errors: { form: toAiError(error).message } }
   }
 
-  registerPractice({
+  await registerPractice({
     userId: user.id,
     kind: 'conversation',
     seconds: 0,
@@ -104,7 +103,8 @@ export async function startConversation(
 export async function discardConversation(conversationId: string) {
   const user = await requireUser()
 
-  db.delete(conversations)
+  await db
+    .delete(conversations)
     .where(
       and(
         eq(conversations.id, conversationId),
@@ -112,7 +112,6 @@ export async function discardConversation(conversationId: string) {
         eq(conversations.status, 'active'),
       ),
     )
-    .run()
 
   revalidatePath('/sessions')
   redirect('/speak')

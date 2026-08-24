@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
 
   const { id } = await params
-  const conversation = getOwnedConversation(user.id, id)
+  const conversation = await getOwnedConversation(user.id, id)
   if (!conversation) return Response.json({ error: 'Conversation not found' }, { status: 404 })
   if (conversation.status !== 'active') {
     return Response.json({ error: 'This session has already ended.' }, { status: 409 })
@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const audioMs = Number(form.get('audioMs')) || null
 
   try {
-    const ai = getUserAi(user.id)
+    const ai = await getUserAi(user.id)
 
     const extension = mime === 'audio/mp4' || mime === 'audio/x-m4a' ? 'mp4' : 'webm'
     const file = new File([await audio.arrayBuffer()], `turn.${extension}`, {
@@ -81,15 +81,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return Response.json({ empty: true }, { status: 200 })
     }
 
-    const prompt = buildPromptFor(user.id, user.name, conversation)
+    const [prompt, history] = await Promise.all([
+      buildPromptFor(user.id, user.name, conversation),
+      conversationHistory(conversation.id),
+    ])
+
     const turn = await generateTurn(ai, {
       systemPrompt: prompt,
-      history: conversationHistory(conversation.id),
+      history,
       userText: transcript,
     })
 
-    const seq = nextSeq(conversation.id)
-    const userMessage = appendMessage({
+    const seq = await nextSeq(conversation.id)
+    const userMessage = await appendMessage({
       conversationId: conversation.id,
       userId: user.id,
       role: 'user',
@@ -97,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       seq,
       audioMs,
     })
-    const assistantMessage = appendMessage({
+    const assistantMessage = await appendMessage({
       conversationId: conversation.id,
       userId: user.id,
       role: 'assistant',
@@ -105,7 +109,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       seq: seq + 1,
     })
 
-    const saved = saveCorrections({
+    const saved = await saveCorrections({
       userId: user.id,
       conversationId: conversation.id,
       messageId: userMessage.id,
@@ -113,7 +117,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     })
 
     // Recurring-mistake ledger updates live, so it survives an abandoned session.
-    recordMistakes(
+    await recordMistakes(
       user.id,
       conversation.id,
       turn.corrections.map((correction) => ({
@@ -125,10 +129,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       })),
     )
 
-    db.update(conversations)
+    await db
+      .update(conversations)
       .set({ userTurns: sql`${conversations.userTurns} + 1` })
       .where(eq(conversations.id, conversation.id))
-      .run()
 
     return Response.json({
       userMessage: { id: userMessage.id, content: userMessage.content, seq: userMessage.seq },

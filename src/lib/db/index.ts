@@ -1,40 +1,38 @@
 import 'server-only'
 
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { drizzle } from 'drizzle-orm/postgres-js'
+import postgres from 'postgres'
 
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
-
-import { seedAchievements } from './seed'
 import * as schema from './schema'
 
 export type Db = ReturnType<typeof create>
 
 function create() {
-  const file = resolve(
-    /* turbopackIgnore: true */ process.cwd(),
-    process.env.DATABASE_URL ?? './data/fluentia.db',
-  )
-
-  if (!existsSync(file)) {
+  const url = process.env.DATABASE_URL
+  if (!url) {
     throw new Error(
-      `No database at ${file}. Run \`npm run db:migrate\` (dev/build/start do it for you).`,
+      'DATABASE_URL is missing. Copy the Supabase connection string into .env.local.',
     )
   }
 
-  const sqlite = new Database(file)
-  sqlite.pragma('journal_mode = WAL')
-  sqlite.pragma('foreign_keys = ON')
-  sqlite.pragma('busy_timeout = 5000')
+  const client = postgres(url, {
+    // Supabase's transaction pooler does not support prepared statements.
+    prepare: false,
+    /*
+     * A page fans out ~10 queries at once. With a smaller pool they queue in
+     * waves, and every wave costs a full round trip to the database's region.
+     * The transaction pooler multiplexes, so holding more client connections
+     * is cheap. Lower it via DATABASE_POOL_SIZE on very constrained hosts.
+     */
+    max: Number(process.env.DATABASE_POOL_SIZE ?? 12),
+    idle_timeout: 30,
+    connect_timeout: 15,
+  })
 
-  const db = drizzle(sqlite, { schema })
-  seedAchievements(db)
-
-  return db
+  return drizzle(client, { schema })
 }
 
-// Reuse one connection across hot reloads in development.
+// Reuse one pool across hot reloads in development.
 const globalForDb = globalThis as unknown as { __fluentiaDb?: Db }
 
 export const db: Db = globalForDb.__fluentiaDb ?? create()

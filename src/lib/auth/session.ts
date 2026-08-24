@@ -24,9 +24,9 @@ export async function createSession(userId: string) {
   const token = randomToken()
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000)
 
-  db.insert(sessions).values({ id: sha256(token), userId, expiresAt }).run()
+  await db.insert(sessions).values({ id: sha256(token), userId, expiresAt })
   // Opportunistic cleanup of this user's expired sessions.
-  db.delete(sessions).where(and(eq(sessions.userId, userId), lt(sessions.expiresAt, new Date()))).run()
+  await db.delete(sessions).where(and(eq(sessions.userId, userId), lt(sessions.expiresAt, new Date())))
 
   const jar = await cookies()
   jar.set(SESSION_COOKIE, token, {
@@ -41,33 +41,49 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const jar = await cookies()
   const token = jar.get(SESSION_COOKIE)?.value
-  if (token) db.delete(sessions).where(eq(sessions.id, sha256(token))).run()
+  if (token) await db.delete(sessions).where(eq(sessions.id, sha256(token)))
   jar.delete(SESSION_COOKIE)
 }
 
 /**
- * Resolves the signed-in user, memoized per request. Returns null when there is
- * no valid, unexpired session.
+ * The session, the user, the profile and the settings in a single round trip.
+ *
+ * Every authenticated page needs all four, and the database is a long way away:
+ * fetching them separately cost three sequential trips on every navigation.
+ * Memoized per request, so the layout and the page share one query.
  */
-export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
+const loadContext = cache(async () => {
   const jar = await cookies()
   const token = jar.get(SESSION_COOKIE)?.value
   if (!token) return null
 
-  const row = db
-    .select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      createdAt: users.createdAt,
-    })
+  const [row] = await db
+    .select()
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(profiles, eq(profiles.userId, users.id))
+    .leftJoin(userSettings, eq(userSettings.userId, users.id))
     .where(and(eq(sessions.id, sha256(token)), gt(sessions.expiresAt, new Date())))
-    .get()
+    .limit(1)
 
-  return row ?? null
+  if (!row) return null
+
+  return {
+    user: {
+      id: row.users.id,
+      email: row.users.email,
+      name: row.users.name,
+      createdAt: row.users.createdAt,
+    } satisfies SessionUser,
+    profile: row.profiles,
+    settings: row.user_settings,
+  }
 })
+
+/** Resolves the signed-in user. Returns null when there is no valid session. */
+export async function getCurrentUser(): Promise<SessionUser | null> {
+  return (await loadContext())?.user ?? null
+}
 
 /** Every authenticated page and route handler starts here. */
 export async function requireUser(): Promise<SessionUser> {
@@ -85,16 +101,31 @@ export async function requireUserOrThrow(): Promise<SessionUser> {
   return user
 }
 
-export const getProfile = cache(async (userId: string) => {
-  const row = db.select().from(profiles).where(eq(profiles.userId, userId)).get()
-  if (row) return row
-  db.insert(profiles).values({ userId }).onConflictDoNothing().run()
-  return db.select().from(profiles).where(eq(profiles.userId, userId)).get()!
-})
+export async function getProfile(userId: string) {
+  const context = await loadContext()
+  if (context?.user.id === userId && context.profile) return context.profile
 
-export const getSettings = cache(async (userId: string) => {
-  const row = db.select().from(userSettings).where(eq(userSettings.userId, userId)).get()
+  const [row] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
   if (row) return row
-  db.insert(userSettings).values({ userId }).onConflictDoNothing().run()
-  return db.select().from(userSettings).where(eq(userSettings.userId, userId)).get()!
-})
+
+  // A user without a profile row only happens if seeding was interrupted.
+  await db.insert(profiles).values({ userId }).onConflictDoNothing()
+  const [created] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
+  return created!
+}
+
+export async function getSettings(userId: string) {
+  const context = await loadContext()
+  if (context?.user.id === userId && context.settings) return context.settings
+
+  const [row] = await db.select().from(userSettings).where(eq(userSettings.userId, userId)).limit(1)
+  if (row) return row
+
+  await db.insert(userSettings).values({ userId }).onConflictDoNothing()
+  const [created] = await db
+    .select()
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1)
+  return created!
+}

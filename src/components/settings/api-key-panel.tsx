@@ -37,12 +37,12 @@ export function ApiKeyPanel({
         hint="Fluentia runs on your own OpenAI account. The key is encrypted with AES-256-GCM before it touches the database and is only ever decrypted on the server — it is never sent to the browser."
         action={
           status === 'ok' ? (
-            <Badge tone="brand">
+            <Badge tone="accent">
               <CheckCircle2 className="size-3" />
               Connected
             </Badge>
           ) : status === 'invalid' ? (
-            <Badge tone="rose">
+            <Badge tone="danger">
               <AlertTriangle className="size-3" />
               Rejected
             </Badge>

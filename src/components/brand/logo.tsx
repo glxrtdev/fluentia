@@ -1,8 +1,9 @@
 import { cn } from '@/lib/utils'
 
 /**
- * The Fluentia mark: five rounded bars rising and falling like a voice
- * waveform, wrapped in a squircle. It doubles as the "listening" indicator.
+ * The Fluentia mark: five bars rising and falling like a voice waveform, set in
+ * a solid accent squircle. Flat and monochrome on purpose — a gradient would be
+ * the only decorative colour in the whole interface.
  */
 export function LogoMark({
   className,
@@ -12,17 +13,17 @@ export function LogoMark({
   animated?: boolean
 }) {
   const bars = [
-    { x: 6, h: 8 },
-    { x: 11, h: 16 },
-    { x: 16, h: 24 },
-    { x: 21, h: 14 },
-    { x: 26, h: 7 },
+    { x: 7.5, h: 7 },
+    { x: 12.2, h: 14 },
+    { x: 16.9, h: 22 },
+    { x: 21.6, h: 12 },
+    { x: 26.3, h: 6 },
   ]
 
   return (
     <span
       className={cn(
-        'relative inline-flex size-9 shrink-0 items-center justify-center rounded-[0.7rem] bg-linear-to-br from-brand-400 to-brand-700 text-white shadow-sm',
+        'relative inline-flex size-8 shrink-0 items-center justify-center rounded-[0.6rem] bg-brand-500 text-white',
         className,
       )}
     >
@@ -32,14 +33,17 @@ export function LogoMark({
             key={bar.x}
             x={bar.x}
             y={18 - bar.h / 2}
-            width="3.4"
+            width="2.6"
             height={bar.h}
-            rx="1.7"
+            rx="1.3"
             fill="currentColor"
-            opacity={0.55 + i * 0.09}
+            opacity={i === 2 ? 1 : 0.72}
             style={
               animated
-                ? { animation: `bar 1.1s ease-in-out ${i * 0.12}s infinite`, transformOrigin: 'center' }
+                ? {
+                    animation: `bar 1.1s ease-in-out ${i * 0.12}s infinite`,
+                    transformOrigin: 'center',
+                  }
                 : undefined
             }
           />
@@ -62,9 +66,7 @@ export function Logo({
     <span className={cn('inline-flex items-center gap-2.5', className)}>
       <LogoMark />
       {showWordmark && (
-        <span className="display text-[1.35rem] leading-none tracking-tight text-ink">
-          Fluentia
-        </span>
+        <span className="text-[1.0625rem] font-semibold tracking-[-0.03em] text-ink">Fluentia</span>
       )}
     </span>
   )

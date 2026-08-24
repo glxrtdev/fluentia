@@ -32,7 +32,7 @@ export function SaveWordButton({
       className={cn(
         'inline-flex shrink-0 items-center gap-1.5 rounded-pill border px-2.5 py-1 text-[0.6875rem] font-semibold transition-colors',
         saved
-          ? 'border-brand-500/30 bg-brand-500/8 text-brand-700 dark:text-brand-300'
+          ? 'border-brand-500/30 bg-brand-500/8 text-brand-600 dark:text-brand-400'
           : 'border-line text-muted hover:border-line-strong hover:text-ink',
         pending && 'opacity-60',
       )}

@@ -48,26 +48,23 @@ export default async function DashboardPage() {
   const [profile, settings] = await Promise.all([getProfile(user.id), getSettings(user.id)])
 
   const today = localDay()
-  const snapshot = learningSnapshot(user.id)
-  const recommendation = recommendNext(user.id)
-  const progress = weeklyProgress(user.id, startOfWeek(today))
-  const calendar = activityCalendar(user.id, 21, today)
-
-  const activeGoals = db
-    .select()
-    .from(goals)
-    .where(and(eq(goals.userId, user.id), eq(goals.active, true)))
-    .all()
-
-  const topMistakes = db
+  const [snapshot, recommendation, progress, calendar, activeGoals, topMistakes, recentSessions] =
+    await Promise.all([
+      learningSnapshot(user.id),
+      recommendNext(user.id),
+      weeklyProgress(user.id, startOfWeek(today)),
+      activityCalendar(user.id, 21, today),
+      db
+        .select()
+        .from(goals)
+        .where(and(eq(goals.userId, user.id), eq(goals.active, true))),
+      db
     .select()
     .from(mistakes)
     .where(and(eq(mistakes.userId, user.id), eq(mistakes.status, 'open')))
-    .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
-    .limit(3)
-    .all()
-
-  const recentSessions = db
+        .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
+        .limit(3),
+      db
     .select({
       id: conversations.id,
       topicLabel: conversations.topicLabel,
@@ -78,9 +75,9 @@ export default async function DashboardPage() {
     .from(conversations)
     .leftJoin(sessionReports, eq(sessionReports.conversationId, conversations.id))
     .where(and(eq(conversations.userId, user.id), eq(conversations.status, 'completed')))
-    .orderBy(desc(conversations.startedAt))
-    .limit(3)
-    .all()
+        .orderBy(desc(conversations.startedAt))
+        .limit(3),
+    ])
 
   const firstName = user.name.split(' ')[0]
   const needsKey = !settings.openaiKeyHint
@@ -90,7 +87,7 @@ export default async function DashboardPage() {
       {/* Greeting */}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+          <p className="text-[0.75rem] font-medium text-muted">
             Your English journey
           </p>
           <h1 className="display mt-2 text-[2rem] leading-tight text-ink sm:text-[2.5rem]">
@@ -100,7 +97,7 @@ export default async function DashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="brand">{LEVEL_LABELS[profile.level]}</Badge>
+          <Badge tone="accent">{LEVEL_LABELS[profile.level]}</Badge>
           {profile.estimatedCefr && <Badge>CEFR {profile.estimatedCefr}</Badge>}
         </div>
       </header>
@@ -111,7 +108,7 @@ export default async function DashboardPage() {
           label="Streak"
           value={profile.streakCurrent}
           suffix={profile.streakCurrent === 1 ? 'day' : 'days'}
-          icon={<Flame className="size-3 text-amber" />}
+          icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
         />
         <Stat
           label="Practised"
@@ -155,7 +152,7 @@ export default async function DashboardPage() {
       {/* Primary action */}
       <section className="mt-6">
         {needsKey ? (
-          <Card className="border-amber/30 bg-amber-soft">
+          <Card className="border-line bg-surface-2">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-[0.9375rem] font-semibold text-ink">
@@ -176,17 +173,17 @@ export default async function DashboardPage() {
             </div>
           </Card>
         ) : (
-          <div className="grain overflow-hidden rounded-card border border-line bg-linear-to-br from-brand-600 to-brand-800 p-6 sm:p-8">
+          <div className="edge-glow overflow-hidden rounded-card bg-pitch p-6 sm:p-8">
             <div className="relative z-10 flex flex-wrap items-end justify-between gap-6">
               <div className="max-w-xl">
-                <p className="flex items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-brand-200">
+                <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-brand-400">
                   <Sparkles className="size-3" />
                   {recommendation ? 'Recommended for you' : 'Continue learning'}
                 </p>
-                <h2 className="display mt-3 text-2xl leading-snug text-white sm:text-[1.75rem]">
+                <h2 className="display mt-3 text-2xl leading-tight text-on-pitch sm:text-[1.875rem]">
                   {recommendation?.topicLabel ?? 'Start a conversation'}
                 </h2>
-                <p className="mt-2.5 text-[0.875rem] leading-relaxed text-brand-100">
+                <p className="mt-2.5 max-w-xl text-[0.875rem] leading-relaxed text-white/60">
                   {recommendation?.reason ??
                     'Pick any topic and start talking. The teacher adapts to how you speak.'}
                 </p>
@@ -194,7 +191,7 @@ export default async function DashboardPage() {
 
               <Link
                 href="/speak"
-                className="inline-flex items-center gap-2 rounded-pill bg-white px-6 py-3 text-sm font-semibold text-brand-800 transition-transform hover:scale-[1.02]"
+                className="inline-flex items-center gap-2 rounded-control bg-brand-500 px-5 py-2.5 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
                 <Mic className="size-4" />
                 Start speaking
@@ -239,7 +236,7 @@ export default async function DashboardPage() {
                     <Progress
                       value={current}
                       total={goal.target}
-                      tone={done ? 'brand' : 'iris'}
+                      tone={done ? 'accent' : 'neutral'}
                       label={meta.label}
                     />
                   </li>
@@ -285,7 +282,7 @@ export default async function DashboardPage() {
                       <span className="mx-2 text-faint">→</span>
                       <span className="font-semibold text-ink">{mistake.corrected}</span>
                     </p>
-                    <p className="mt-1 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-faint">
+                    <p className="mt-1 text-[0.75rem] font-medium text-muted">
                       {CATEGORY_LABELS[mistake.category]}
                     </p>
                   </div>
@@ -317,7 +314,7 @@ export default async function DashboardPage() {
               action={
                 <Link
                   href="/speak"
-                  className="inline-flex items-center gap-2 rounded-pill bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white dark:bg-brand-500 dark:text-[#04201d]"
+                  className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
                 >
                   Start one now
                 </Link>

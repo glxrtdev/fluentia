@@ -38,7 +38,8 @@ export async function completeOnboarding(
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const data = parsed.data
-  db.update(profiles)
+  await db
+    .update(profiles)
     .set({
       level: data.level,
       autoAdaptLevel: data.autoAdaptLevel,
@@ -50,7 +51,6 @@ export async function completeOnboarding(
       updatedAt: new Date(),
     })
     .where(eq(profiles.userId, user.id))
-    .run()
 
   redirect('/dashboard')
 }
@@ -70,8 +70,9 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const data = parsed.data
-  db.update(users).set({ name: data.name }).where(eq(users.id, user.id)).run()
-  db.update(profiles)
+  await db.update(users).set({ name: data.name }).where(eq(users.id, user.id))
+  await db
+    .update(profiles)
     .set({
       level: data.level,
       autoAdaptLevel: data.autoAdaptLevel,
@@ -82,7 +83,6 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
       updatedAt: new Date(),
     })
     .where(eq(profiles.userId, user.id))
-    .run()
 
   revalidatePath('/settings')
   revalidatePath('/profile')
@@ -98,13 +98,13 @@ export async function updateGoals(_prev: FormState, formData: FormData): Promise
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   for (const goal of parsed.data.goals) {
-    db.insert(goals)
+    await db
+      .insert(goals)
       .values({ userId: user.id, kind: goal.kind as GoalKind, target: goal.target })
       .onConflictDoUpdate({
         target: [goals.userId, goals.kind],
         set: { target: goal.target, active: goal.target > 0 },
       })
-      .run()
   }
 
   revalidatePath('/goals')

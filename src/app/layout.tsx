@@ -1,19 +1,18 @@
 import type { Metadata, Viewport } from 'next'
-import { Instrument_Serif, Inter } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import { cookies } from 'next/headers'
 
 import './globals.css'
 
-const inter = Inter({
+const geist = Geist({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-geist',
   display: 'swap',
 })
 
-const display = Instrument_Serif({
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  weight: '400',
-  variable: '--font-display-serif',
+  variable: '--font-geist-mono',
   display: 'swap',
 })
 
@@ -29,8 +28,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#fbfaf8' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0c0e' },
+    { media: '(prefers-color-scheme: light)', color: '#fcfcfd' },
+    { media: '(prefers-color-scheme: dark)', color: '#08090a' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -48,7 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const theme = (await cookies()).get('fluentia_theme')?.value ?? 'system'
 
   return (
-    <html lang="en" className={`${inter.variable} ${display.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

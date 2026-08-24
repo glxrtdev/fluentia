@@ -11,21 +11,21 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
       {/* Brand panel — hidden on mobile so the form owns the screen. */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-linear-to-br from-brand-700 to-brand-900 p-10 lg:flex">
-        <Logo href="/" className="[&_span:last-child]:text-white" />
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-pitch p-10 lg:flex">
+        <Logo href="/" className="[&_span:last-child]:text-on-pitch" />
 
         <div className="max-w-md">
-          <Quote className="size-6 text-brand-300" />
-          <p className="display mt-5 text-[2rem] leading-[1.15] text-white">
+          <Quote className="size-5 text-brand-400" />
+          <p className="display mt-6 text-[1.875rem] leading-[1.2] text-on-pitch">
             The fastest way to speak English is to speak English.
           </p>
-          <p className="mt-5 text-sm leading-relaxed text-brand-100">
+          <p className="mt-5 text-[0.875rem] leading-relaxed text-white/55">
             Fluentia gives you somewhere to do that every day — with a teacher that listens,
             answers out loud, and remembers what you keep getting wrong.
           </p>
         </div>
 
-        <p className="text-xs text-brand-200">
+        <p className="text-xs text-white/40">
           Bring your own OpenAI key · your conversations stay in your own database
         </p>
       </aside>

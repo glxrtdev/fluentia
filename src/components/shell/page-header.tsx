@@ -15,17 +15,17 @@ export function PageHeader({
 }) {
   return (
     <header
-      className={cn('flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6', className)}
+      className={cn('flex flex-wrap items-end justify-between gap-4', className)}
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+          <p className="mb-2.5 text-[0.75rem] font-medium text-brand-600 dark:text-brand-400">
             {eyebrow}
           </p>
         )}
-        <h1 className="display text-[2rem] leading-tight text-ink sm:text-[2.35rem]">{title}</h1>
+        <h1 className="display text-[1.75rem] leading-[1.1] text-ink sm:text-[2.125rem]">{title}</h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-[0.9375rem] leading-relaxed text-muted">{description}</p>
+          <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-muted">{description}</p>
         )}
       </div>
       {action}

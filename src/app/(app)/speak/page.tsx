@@ -16,15 +16,17 @@ export default async function SpeakPage() {
   const user = await requireUser()
   const [profile, settings] = await Promise.all([getProfile(user.id), getSettings(user.id)])
 
-  const recommendation = recommendNext(user.id)
+  const [recommendation, activeRows] = await Promise.all([
+    recommendNext(user.id),
+    db
+      .select({ id: conversations.id, topicLabel: conversations.topicLabel })
+      .from(conversations)
+      .where(and(eq(conversations.userId, user.id), eq(conversations.status, 'active')))
+      .orderBy(desc(conversations.startedAt))
+      .limit(1),
+  ])
 
-  const active = db
-    .select({ id: conversations.id, topicLabel: conversations.topicLabel })
-    .from(conversations)
-    .where(and(eq(conversations.userId, user.id), eq(conversations.status, 'active')))
-    .orderBy(desc(conversations.startedAt))
-    .limit(1)
-    .get()
+  const active = activeRows[0]
 
   return (
     <PageShell>

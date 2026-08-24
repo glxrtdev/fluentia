@@ -15,14 +15,23 @@ import { CATEGORY_LABELS, cn, formatDuration, LEVEL_LABELS } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'English profile' }
 
+const MIX_SHADES = [
+  'bg-brand-500',
+  'bg-brand-500/80',
+  'bg-brand-500/60',
+  'bg-brand-500/45',
+  'bg-brand-500/30',
+  'bg-brand-500/20',
+]
+
 const CEFR_SCALE = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
 export default async function ProfilePage() {
   const user = await requireUser()
   const profile = await getProfile(user.id)
-  const snapshot = learningSnapshot(user.id)
-
-  const trend = db
+  const [snapshot, trendRows, mistakeMix] = await Promise.all([
+    learningSnapshot(user.id),
+    db
     .select({
       speaking: sessionReports.speaking,
       createdAt: sessionReports.createdAt,
@@ -32,20 +41,19 @@ export default async function ProfilePage() {
     .from(sessionReports)
     .innerJoin(conversations, eq(conversations.id, sessionReports.conversationId))
     .where(eq(sessionReports.userId, user.id))
-    .orderBy(desc(sessionReports.createdAt))
-    .limit(8)
-    .all()
-    .reverse()
-
-  const mistakeMix = db
+      .orderBy(desc(sessionReports.createdAt))
+      .limit(8),
+    db
     .select({
       category: mistakes.category,
-      total: sql<number>`sum(${mistakes.occurrences})`,
+      total: sql<number>`coalesce(sum(${mistakes.occurrences}), 0)::int`,
     })
     .from(mistakes)
     .where(and(eq(mistakes.userId, user.id), eq(mistakes.status, 'open')))
-    .groupBy(mistakes.category)
-    .all()
+      .groupBy(mistakes.category),
+  ])
+
+  const trend = [...trendRows].reverse()
 
   const mixTotal = mistakeMix.reduce((total, row) => total + row.total, 0)
   const cefrIndex = profile.estimatedCefr ? CEFR_SCALE.indexOf(profile.estimatedCefr) : -1
@@ -82,9 +90,9 @@ export default async function ProfilePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {profile.autoAdaptLevel && <Badge tone="brand">Auto-adapting</Badge>}
+            {profile.autoAdaptLevel && <Badge tone="accent">Auto-adapting</Badge>}
             {improvement !== null && (
-              <Badge tone={improvement >= 0 ? 'brand' : 'rose'}>
+              <Badge tone={improvement >= 0 ? 'accent' : 'danger'}>
                 {improvement >= 0 ? <TrendingUp className="size-3" /> : <Minus className="size-3" />}
                 {improvement >= 0 ? '+' : ''}
                 {improvement} on speaking
@@ -155,7 +163,7 @@ export default async function ProfilePage() {
             <ul className="mt-3 space-y-2">
               {profile.weaknesses.map((item) => (
                 <li key={item} className="flex items-center gap-2 text-[0.875rem] text-ink">
-                  <span className="size-1.5 rounded-full bg-amber" />
+                  <span className="size-1.5 rounded-full bg-brand-500" />
                   {item}
                 </li>
               ))}
@@ -209,18 +217,10 @@ export default async function ProfilePage() {
             {CORRECTION_CATEGORIES.map((category, index) => {
               const row = mistakeMix.find((entry) => entry.category === category)
               if (!row) return null
-              const colors = [
-                'bg-rose',
-                'bg-iris',
-                'bg-amber',
-                'bg-brand-500',
-                'bg-brand-700',
-                'bg-line-strong',
-              ]
               return (
                 <span
                   key={category}
-                  className={colors[index % colors.length]}
+                  className={MIX_SHADES[index % MIX_SHADES.length]}
                   style={{ width: `${(row.total / mixTotal) * 100}%` }}
                   title={`${CATEGORY_LABELS[category]}: ${row.total}`}
                 />
@@ -232,17 +232,9 @@ export default async function ProfilePage() {
             {CORRECTION_CATEGORIES.map((category, index) => {
               const row = mistakeMix.find((entry) => entry.category === category)
               if (!row) return null
-              const colors = [
-                'bg-rose',
-                'bg-iris',
-                'bg-amber',
-                'bg-brand-500',
-                'bg-brand-700',
-                'bg-line-strong',
-              ]
               return (
                 <li key={category} className="flex items-center gap-1.5 text-[0.75rem] text-muted">
-                  <span className={cn('size-2 rounded-full', colors[index % colors.length])} />
+                  <span className={cn('size-2 rounded-full', MIX_SHADES[index % MIX_SHADES.length])} />
                   {CATEGORY_LABELS[category]}
                   <span className="font-semibold text-ink">{row.total}</span>
                 </li>

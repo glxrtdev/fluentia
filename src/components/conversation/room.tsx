@@ -245,8 +245,8 @@ export function ConversationRoom({
             className={cn(
               'relative flex size-16 items-center justify-center rounded-full transition-all duration-200 active:scale-95 disabled:opacity-40',
               recorder.recording
-                ? 'bg-rose text-white shadow-lg'
-                : 'bg-brand-600 text-white shadow-md hover:bg-brand-700 dark:bg-brand-500 dark:text-[#04201d]',
+                ? 'bg-rose text-white'
+                : 'bg-brand-500 text-white hover:bg-brand-600',
             )}
           >
             {recorder.recording && (
@@ -284,7 +284,7 @@ export function ConversationRoom({
         className={cn(
           'inline-flex items-center gap-2 rounded-pill border px-3.5 py-1.5 text-xs font-medium transition-colors',
           handsFree
-            ? 'border-brand-500/30 bg-brand-500/8 text-brand-700 dark:text-brand-300'
+            ? 'border-brand-500/30 bg-brand-500/8 text-brand-600 dark:text-brand-400'
             : 'border-line text-muted hover:text-ink',
         )}
       >
@@ -298,7 +298,7 @@ export function ConversationRoom({
     <div ref={scrollRef} className="flex-1 space-y-5 overflow-y-auto px-1 py-2 scroll-slim">
       {messages.map((message) => (
         <div key={message.id} className="animate-fade-in">
-          <p className="mb-1 text-[0.625rem] font-bold uppercase tracking-[0.16em] text-faint">
+          <p className="mb-1 text-[0.75rem] font-medium text-faint">
             {message.role === 'assistant' ? 'Teacher' : 'You'}
           </p>
           <p

@@ -16,11 +16,11 @@ export type LiveCorrection = {
 
 const TONE: Record<string, string> = {
   grammar: 'text-rose',
-  prepositions: 'text-amber',
-  vocabulary: 'text-iris',
+  prepositions: 'text-brand-600 dark:text-brand-400',
+  vocabulary: 'text-brand-600 dark:text-brand-400',
   pronunciation: 'text-brand-600 dark:text-brand-400',
   'sentence-structure': 'text-rose',
-  naturalness: 'text-iris',
+  naturalness: 'text-brand-600 dark:text-brand-400',
 }
 
 export function CorrectionCard({ correction }: { correction: LiveCorrection }) {
@@ -29,14 +29,14 @@ export function CorrectionCard({ correction }: { correction: LiveCorrection }) {
       <div className="mb-2.5 flex items-center justify-between gap-2">
         <span
           className={cn(
-            'text-[0.625rem] font-bold uppercase tracking-[0.14em]',
+            'text-[0.75rem] font-medium',
             TONE[correction.category] ?? 'text-muted',
           )}
         >
           {CATEGORY_LABELS[correction.category] ?? correction.category}
         </span>
         {correction.severity >= 3 && (
-          <span className="rounded-pill bg-rose/10 px-2 py-0.5 text-[0.625rem] font-bold uppercase tracking-wide text-rose">
+          <span className="rounded-pill bg-rose/10 px-2 py-0.5 text-[0.75rem] font-medium text-rose">
             Key
           </span>
         )}
@@ -47,7 +47,7 @@ export function CorrectionCard({ correction }: { correction: LiveCorrection }) {
           {correction.original}
         </span>
         <span className="mx-2 text-faint">→</span>
-        <span className="font-semibold text-brand-700 dark:text-brand-300">
+        <span className="font-semibold text-brand-600 dark:text-brand-400">
           {correction.corrected}
         </span>
       </p>
@@ -73,7 +73,7 @@ export function FeedbackPanel({ corrections }: { corrections: LiveCorrection[] }
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
-        <h2 className="text-[0.6875rem] font-semibold uppercase tracking-[0.16em] text-faint">
+        <h2 className="text-[0.75rem] font-medium text-muted">
           Feedback
         </h2>
         {corrections.length > 0 && (

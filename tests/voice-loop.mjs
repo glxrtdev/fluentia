@@ -9,14 +9,19 @@
  *   node tests/voice-loop.mjs http://localhost:3117 4319
  */
 import { createServer } from 'node:http'
-import { createCipheriv, createHash, randomBytes, scryptSync } from 'node:crypto'
-import { resolve } from 'node:path'
+import { createCipheriv, createHash, randomBytes, randomUUID, scryptSync } from 'node:crypto'
 
-import Database from 'better-sqlite3'
+import postgres from 'postgres'
 
 const base = process.argv[2] ?? 'http://localhost:3000'
 const mockPort = Number(process.argv[3] ?? 4319)
-const dbFile = resolve(process.cwd(), process.env.DATABASE_URL ?? './data/fluentia.db')
+
+if (!process.env.DATABASE_URL) {
+  console.error('DATABASE_URL is missing. Run with --env-file-if-exists=.env.local')
+  process.exit(1)
+}
+
+const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false })
 
 let failures = 0
 const record = (name, ok, detail = '') => {
@@ -129,9 +134,6 @@ const mock = createServer((request, response) => {
 
 /* ---------------------------------------------------------------- fixtures */
 
-const db = new Database(dbFile)
-db.pragma('foreign_keys = ON')
-
 /** Same AES-256-GCM envelope the app writes, reimplemented so the test is independent. */
 function encryptSecret(plaintext) {
   const raw = process.env.ENCRYPTION_KEY
@@ -143,40 +145,42 @@ function encryptSecret(plaintext) {
   return [iv, cipher.getAuthTag(), enc].map((b) => b.toString('base64')).join('.')
 }
 
-const userId = crypto.randomUUID()
+const userId = randomUUID()
 const token = randomBytes(32).toString('base64url')
 const cookie = `fluentia_session=${token}`
-const conversationId = crypto.randomUUID()
+const conversationId = randomUUID()
 
-db.prepare('insert into users (id, email, name, password_hash) values (?, ?, ?, ?)').run(
-  userId,
-  `voice-${Date.now()}@fluentia.test`,
-  'Voice Tester',
-  `scrypt$${randomBytes(16).toString('hex')}$${scryptSync('x', 'y', 64).toString('hex')}`,
-)
-db.prepare(
-  'insert into profiles (user_id, level, onboarded_at, auto_adapt_level, main_goal) values (?, ?, ?, ?, ?)',
-).run(userId, 'intermediate', Date.now(), 1, 'career')
-db.prepare(
-  'insert into user_settings (user_id, openai_key_cipher, openai_key_hint, openai_key_status) values (?, ?, ?, ?)',
-).run(userId, encryptSecret('sk-test-key-not-real'), 'real', 'ok')
-db.prepare('insert into sessions (id, user_id, expires_at) values (?, ?, ?)').run(
-  createHash('sha256').update(token).digest('hex'),
-  userId,
-  Date.now() + 86_400_000,
-)
-db.prepare(
-  'insert into conversations (id, user_id, topic_id, topic_label, category, level, status) values (?, ?, ?, ?, ?, ?, ?)',
-).run(conversationId, userId, 'my-career', 'My career', 'career', 'intermediate', 'active')
-db.prepare(
-  'insert into conversation_messages (id, conversation_id, user_id, seq, role, content) values (?, ?, ?, ?, ?, ?)',
-).run(crypto.randomUUID(), conversationId, userId, 0, 'assistant', 'Tell me about your current job.')
-
-
-/** Throwaway fixtures are removed so the development database stays clean. */
-function cleanup() {
-  db.prepare("delete from users where email like '%@fluentia.test'").run()
+async function seed() {
+  await sql`
+    insert into users (id, email, name, password_hash)
+    values (${userId}, ${`voice-${Date.now()}@fluentia.test`}, 'Voice Tester',
+            ${`scrypt$${randomBytes(16).toString('hex')}$${scryptSync('x', 'y', 64).toString('hex')}`})
+  `
+  await sql`
+    insert into profiles (user_id, level, onboarded_at, auto_adapt_level, main_goal)
+    values (${userId}, 'intermediate', now(), true, 'career')
+  `
+  await sql`
+    insert into user_settings (user_id, openai_key_cipher, openai_key_hint, openai_key_status)
+    values (${userId}, ${encryptSecret('sk-test-key-not-real')}, 'real', 'ok')
+  `
+  await sql`
+    insert into sessions (id, user_id, expires_at)
+    values (${createHash('sha256').update(token).digest('hex')}, ${userId}, now() + interval '1 day')
+  `
+  await sql`
+    insert into conversations (id, user_id, topic_id, topic_label, category, level, status)
+    values (${conversationId}, ${userId}, 'my-career', 'My career', 'career', 'intermediate', 'active')
+  `
+  await sql`
+    insert into conversation_messages (id, conversation_id, user_id, seq, role, content)
+    values (${randomUUID()}, ${conversationId}, ${userId}, 0, 'assistant', 'Tell me about your current job.')
+  `
 }
+
+
+/** Throwaway fixtures are removed so the database stays clean. */
+const cleanup = () => sql`delete from users where email like '%@fluentia.test'`
 
 /* -------------------------------------------------------------------- run */
 
@@ -185,6 +189,7 @@ const call = (path, init = {}) =>
 
 async function main() {
   await new Promise((done) => mock.listen(mockPort, '127.0.0.1', done))
+  await seed()
   console.log(`mock OpenAI listening on http://127.0.0.1:${mockPort}/v1\n`)
 
   /* --- one full turn ------------------------------------------------------ */
@@ -212,23 +217,17 @@ async function main() {
     data.corrections?.some((c) => (c.betterSentence ?? '').startsWith('Yesterday I went')),
   )
 
-  const messages = db
-    .prepare('select role, content, seq from conversation_messages where conversation_id = ? order by seq')
-    .all(conversationId)
+  const messages = await sql`select role, content, seq from conversation_messages where conversation_id = ${conversationId} order by seq`
   record('both turns were persisted in order', messages.length === 3 && messages[1].role === 'user')
 
-  const storedCorrections = db
-    .prepare('select * from corrections where conversation_id = ?')
-    .all(conversationId)
+  const storedCorrections = await sql`select * from corrections where conversation_id = ${conversationId}`
   record('corrections were stored', storedCorrections.length === 2)
   record(
     'corrections are scoped to the owner',
     storedCorrections.every((row) => row.user_id === userId),
   )
 
-  const mistakes = db
-    .prepare('select * from mistakes where user_id = ? order by occurrences desc')
-    .all(userId)
+  const mistakes = await sql`select * from mistakes where user_id = ${userId} order by occurrences desc`
   record('mistakes ledger was updated live', mistakes.length === 2)
 
   /* --- the same mistake again should increment, not duplicate -------------
@@ -242,18 +241,14 @@ async function main() {
     record(`turn ${extra + 2} accepted`, next.status === 200)
   }
 
-  const repeated = db
-    .prepare('select occurrences from mistakes where user_id = ? order by occurrences desc')
-    .all(userId)
+  const repeated = await sql`select occurrences from mistakes where user_id = ${userId} order by occurrences desc`
   record(
     'a repeated mistake increments its counter instead of duplicating',
     repeated.length === 2 && repeated[0].occurrences === 4,
     `counts: ${repeated.map((m) => m.occurrences).join(',')}`,
   )
 
-  const occurrences = db
-    .prepare('select count(*) as n from mistake_occurrences where user_id = ?')
-    .get(userId)
+  const [occurrences] = await sql`select count(*)::int as n from mistake_occurrences where user_id = ${userId}`
   record('each occurrence is logged separately', occurrences.n === 8, `${occurrences.n} rows`)
 
   /* --- speech ------------------------------------------------------------- */
@@ -269,9 +264,7 @@ async function main() {
     (speech.headers.get('cache-control') ?? '').includes('private'),
   )
 
-  const learnerMessage = db
-    .prepare("select id from conversation_messages where conversation_id = ? and role = 'user' limit 1")
-    .get(conversationId)
+  const [learnerMessage] = await sql`select id from conversation_messages where conversation_id = ${conversationId} and role = 'user' limit 1`
   const badSpeech = await call(`/api/speech?messageId=${learnerMessage.id}`)
   record('the learner’s own turn cannot be synthesised', badSpeech.status === 400)
 
@@ -284,36 +277,35 @@ async function main() {
   const endData = await end.json()
   record('session ended', end.status === 200, `status ${end.status} ${endData.error ?? ''}`)
 
-  const report = db.prepare('select * from session_reports where conversation_id = ?').get(conversationId)
+  const [report] = await sql`select * from session_reports where conversation_id = ${conversationId}`
   record('report was stored', Boolean(report))
   record('scores came through', report?.speaking === 78 && report?.fluency === 76)
   record('pronunciation stays null without evidence', report?.pronunciation === null)
-  record('main mistakes were kept', JSON.parse(report?.main_mistakes ?? '[]').length === 2)
-  record('expressions were kept', JSON.parse(report?.expressions ?? '[]').length === 1)
+  record('main mistakes were kept', (report?.main_mistakes ?? []).length === 2)
+  record('expressions were kept', (report?.expressions ?? []).length === 1)
 
-  const conversation = db.prepare('select * from conversations where id = ?').get(conversationId)
+  const [conversation] = await sql`select * from conversations where id = ${conversationId}`
   record(
     'conversation is closed with its duration',
     conversation.status === 'completed' && conversation.duration_seconds === 420,
   )
 
-  const profile = db.prepare('select * from profiles where user_id = ?').get(userId)
+  const [profile] = await sql`select * from profiles where user_id = ${userId}`
   record('CEFR estimate reached the profile', profile.estimated_cefr === 'B2')
   record(
     'auto-adapt nudged the level one step',
     profile.level === 'upper-intermediate',
     `level is ${profile.level}`,
   )
-  record('strengths were recorded', JSON.parse(profile.strengths).includes('Vocabulary'))
+  record('strengths were recorded', profile.strengths.includes('Vocabulary'))
   record('practice time accumulated', profile.total_practice_seconds === 420)
   record('sessions completed counted', profile.sessions_completed === 1)
   record('streak started', profile.streak_current === 1 && profile.last_practice_date !== null)
   record('XP was awarded', profile.xp > 0, `${profile.xp} XP`)
 
-  const unlocked = db
-    .prepare('select achievement_id from user_achievements where user_id = ?')
-    .all(userId)
-    .map((row) => row.achievement_id)
+  const unlocked = (
+    await sql`select achievement_id from user_achievements where user_id = ${userId}`
+  ).map((row) => row.achievement_id)
   record('first conversation achievement unlocked', unlocked.includes('first-conversation'))
   record('career achievement unlocked from the topic', unlocked.includes('first-career-session'))
 
@@ -338,15 +330,13 @@ async function main() {
   )
 
   /* --- translation, on demand only ---------------------------------------- */
-  const word = db
-    .prepare('select id from vocabulary where user_id = ? limit 1')
-    .get(userId)
-  db.prepare(
-    'insert into vocabulary (id, user_id, word, definition) values (?, ?, ?, ?)',
-  ).run(word ? crypto.randomUUID() : crypto.randomUUID(), userId, 'deadline', 'A time limit.')
-  const saved = db
-    .prepare("select id, translation from vocabulary where user_id = ? and word = 'deadline'")
-    .get(userId)
+  await sql`
+    insert into vocabulary (id, user_id, word, definition)
+    values (${randomUUID()}, ${userId}, 'deadline', 'A time limit.')
+  `
+  const [saved] = await sql`
+    select id, translation from vocabulary where user_id = ${userId} and word = 'deadline'
+  `
   record('a saved word starts untranslated', saved.translation === null)
 
   const translated = await call('/api/translate', {
@@ -360,19 +350,17 @@ async function main() {
     translated.status === 200 && translationBody.translation === 'prazo de entrega',
     `status ${translated.status} — ${translationBody.translation ?? translationBody.error}`,
   )
-  record(
-    'translation is persisted on the saved word',
-    db.prepare('select translation from vocabulary where id = ?').get(saved.id).translation ===
-      'prazo de entrega',
-  )
+  const [persisted] = await sql`select translation from vocabulary where id = ${saved.id}`
+  record('translation is persisted on the saved word', persisted.translation === 'prazo de entrega')
 
   /* --- input guards ------------------------------------------------------- */
   const emptyBody = new FormData()
   emptyBody.set('audio', new File([], 'turn.webm', { type: 'audio/webm' }), 'turn.webm')
-  const fresh = crypto.randomUUID()
-  db.prepare(
-    'insert into conversations (id, user_id, topic_id, topic_label, category, level, status) values (?, ?, ?, ?, ?, ?, ?)',
-  ).run(fresh, userId, 'hobbies', 'Hobbies', 'daily-life', 'intermediate', 'active')
+  const fresh = randomUUID()
+  await sql`
+    insert into conversations (id, user_id, topic_id, topic_label, category, level, status)
+    values (${fresh}, ${userId}, 'hobbies', 'Hobbies', 'daily-life', 'intermediate', 'active')
+  `
 
   const emptyUpload = await call(`/api/conversations/${fresh}/turn`, {
     method: 'POST',
@@ -395,8 +383,8 @@ main()
     console.error(error)
     process.exitCode = 1
   })
-  .finally(() => {
-    cleanup()
-    db.close()
+  .finally(async () => {
+    await cleanup()
+    await sql.end()
     mock.close()
   })
