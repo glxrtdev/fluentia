@@ -5,13 +5,14 @@ import postgres from 'postgres'
 
 import * as schema from './schema'
 
-export type Db = ReturnType<typeof create>
+type Client = ReturnType<typeof create>
 
 function create() {
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error(
-      'DATABASE_URL is missing. Copy the Supabase connection string into .env.local.',
+      'DATABASE_URL is missing. Set the Supabase connection string in .env.local (local) ' +
+        'or in the deployment environment variables.',
     )
   }
 
@@ -33,9 +34,23 @@ function create() {
 }
 
 // Reuse one pool across hot reloads in development.
-const globalForDb = globalThis as unknown as { __fluentiaDb?: Db }
+const globalForDb = globalThis as unknown as { __fluentiaDb?: Client }
 
-export const db: Db = globalForDb.__fluentiaDb ?? create()
-if (process.env.NODE_ENV !== 'production') globalForDb.__fluentiaDb = db
+function connection(): Client {
+  globalForDb.__fluentiaDb ??= create()
+  return globalForDb.__fluentiaDb
+}
+
+/**
+ * The database handle, connected on first use rather than on import.
+ *
+ * A build machine analyses this module without any credentials — connecting
+ * eagerly would fail the build instead of the request that actually needs a
+ * database.
+ */
+export const db = new Proxy({} as Client, {
+  get: (_target, property, receiver) => Reflect.get(connection(), property, receiver),
+  has: (_target, property) => Reflect.has(connection(), property),
+})
 
 export { schema }

@@ -6,9 +6,9 @@
   "scripts": {
     "setup": "node scripts/setup-env.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/migrate.mjs",
+    "db:deploy": "node scripts/migrate.mjs",
     "predev": "npm run setup && npm run db:migrate",
     "dev": "next dev",
-    "prebuild": "npm run setup && npm run db:migrate",
     "build": "next build",
     "prestart": "npm run db:migrate",
     "start": "next start",
@@ -41,5 +41,8 @@
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22.11"
   }
 }

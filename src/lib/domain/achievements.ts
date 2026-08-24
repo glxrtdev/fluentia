@@ -1,6 +1,11 @@
+import catalogue from './achievements.json'
+
 /**
- * Achievement catalogue. Each entry carries the rule that unlocks it, evaluated
- * against a snapshot of the user's real data after every session.
+ * Achievement catalogue.
+ *
+ * The copy lives in `achievements.json` so the migration script can seed the
+ * table without importing TypeScript — plain Node cannot load `.ts` files
+ * before v23. The unlock rules stay here, keyed by id.
  */
 export type AchievementStats = {
   conversationsCompleted: number
@@ -22,103 +27,26 @@ export type AchievementDef = {
   test: (s: AchievementStats) => boolean
 }
 
-export const ACHIEVEMENTS: AchievementDef[] = [
-  {
-    id: 'first-conversation',
-    title: 'First Conversation',
-    description: 'Complete your first speaking session',
-    icon: 'sparkles',
-    xp: 50,
-    test: (s) => s.conversationsCompleted >= 1,
-  },
-  {
-    id: 'ten-conversations',
-    title: '10 Conversations',
-    description: 'Complete ten speaking sessions',
-    icon: 'messages',
-    xp: 150,
-    test: (s) => s.conversationsCompleted >= 10,
-  },
-  {
-    id: 'fifty-conversations',
-    title: '50 Conversations',
-    description: 'Complete fifty speaking sessions',
-    icon: 'trophy',
-    xp: 500,
-    test: (s) => s.conversationsCompleted >= 50,
-  },
-  {
-    id: 'one-hour-speaking',
-    title: '1 Hour Speaking',
-    description: 'Reach one hour of total speaking practice',
-    icon: 'clock',
-    xp: 120,
-    test: (s) => s.totalPracticeSeconds >= 3600,
-  },
-  {
-    id: 'five-hours-speaking',
-    title: '5 Hours Speaking',
-    description: 'Reach five hours of total speaking practice',
-    icon: 'clock',
-    xp: 400,
-    test: (s) => s.totalPracticeSeconds >= 5 * 3600,
-  },
-  {
-    id: 'seven-day-streak',
-    title: '7 Day Streak',
-    description: 'Practise seven days in a row',
-    icon: 'flame',
-    xp: 200,
-    test: (s) => s.streakCurrent >= 7,
-  },
-  {
-    id: 'thirty-day-streak',
-    title: '30 Day Streak',
-    description: 'Practise thirty days in a row',
-    icon: 'flame',
-    xp: 800,
-    test: (s) => s.streakCurrent >= 30,
-  },
-  {
-    id: 'hundred-words',
-    title: '100 Words Learned',
-    description: 'Mark one hundred words as learned',
-    icon: 'book',
-    xp: 300,
-    test: (s) => s.wordsLearned >= 100,
-  },
-  {
-    id: 'first-career-session',
-    title: 'First Career Session',
-    description: 'Talk about your career in English',
-    icon: 'briefcase',
-    xp: 60,
-    test: (s) => s.categoriesPracticed.includes('career'),
-  },
-  {
-    id: 'first-advanced-session',
-    title: 'First Advanced Session',
-    description: 'Complete a conversation at advanced level',
-    icon: 'mountain',
-    xp: 180,
-    test: (s) => s.levelsPracticed.includes('advanced'),
-  },
-  {
-    id: 'mistake-tamer',
-    title: 'Mistake Tamer',
-    description: 'Fix a recurring mistake for good',
-    icon: 'target',
-    xp: 150,
-    test: (s) => s.resolvedMistakes >= 1,
-  },
-  {
-    id: 'high-scorer',
-    title: 'High Scorer',
-    description: 'Score 85 or more on speaking',
-    icon: 'star',
-    xp: 250,
-    test: (s) => s.bestSpeakingScore >= 85,
-  },
-]
+/** What each achievement demands of the learner's real numbers. */
+const RULES: Record<string, (s: AchievementStats) => boolean> = {
+  'first-conversation': (s) => s.conversationsCompleted >= 1,
+  'ten-conversations': (s) => s.conversationsCompleted >= 10,
+  'fifty-conversations': (s) => s.conversationsCompleted >= 50,
+  'one-hour-speaking': (s) => s.totalPracticeSeconds >= 3600,
+  'five-hours-speaking': (s) => s.totalPracticeSeconds >= 5 * 3600,
+  'seven-day-streak': (s) => s.streakCurrent >= 7,
+  'thirty-day-streak': (s) => s.streakCurrent >= 30,
+  'hundred-words': (s) => s.wordsLearned >= 100,
+  'first-career-session': (s) => s.categoriesPracticed.includes('career'),
+  'first-advanced-session': (s) => s.levelsPracticed.includes('advanced'),
+  'mistake-tamer': (s) => s.resolvedMistakes >= 1,
+  'high-scorer': (s) => s.bestSpeakingScore >= 85,
+}
+
+export const ACHIEVEMENTS: AchievementDef[] = catalogue.map((entry) => {
+  const test = RULES[entry.id]
+  if (!test) throw new Error(`Achievement "${entry.id}" has no unlock rule.`)
+  return { ...entry, test }
+})
 
 export const ACHIEVEMENT_BY_ID = new Map(ACHIEVEMENTS.map((a) => [a.id, a]))
