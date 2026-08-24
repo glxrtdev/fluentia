@@ -1,8 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { Quote } from 'lucide-react'
 
-import { Logo } from '@/components/brand/logo'
+import lockup from '@/assets/logo-lockup.webp'
+import { Logo, LogoMark } from '@/components/brand/logo'
 import { getCurrentUser } from '@/lib/auth/session'
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -10,13 +11,25 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
-      {/* Brand panel — hidden on mobile so the form owns the screen. */}
+      {/*
+        Brand panel — hidden on mobile so the form owns the screen. The lockup
+        carries its own dark background, which is exactly why it lives here and
+        not on the light surfaces.
+      */}
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-pitch p-10 lg:flex">
-        <Logo href="/" className="[&_span:last-child]:text-on-pitch" />
+        <Link href="/" aria-label="Fluentia home" className="w-fit rounded-lg">
+          <LogoMark />
+        </Link>
 
         <div className="max-w-md">
-          <Quote className="size-5 text-brand-400" />
-          <p className="display mt-6 text-[1.875rem] leading-[1.2] text-on-pitch">
+          <Image
+            src={lockup}
+            alt="Fluentia"
+            priority
+            sizes="(min-width: 1024px) 22rem, 0px"
+            className="mb-8 w-[22rem] max-w-full"
+          />
+          <p className="display text-[1.75rem] leading-[1.2] text-on-pitch">
             The fastest way to speak English is to speak English.
           </p>
           <p className="mt-5 text-[0.875rem] leading-relaxed text-white/55">

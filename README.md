@@ -106,6 +106,7 @@ npm run typecheck
 npm test             # migration shape + date/streak unit tests (no database needed)
 npm run test:smoke http://localhost:3000    # pages, auth guards, per-user isolation
 npm run test:voice  http://localhost:3000 4319   # the full voice loop against a mock OpenAI
+npm run icons       # regenerate favicon, app icon and social card from the logo
 npm run db:generate # new migration after editing the schema
 npm run db:studio   # browse the database
 ```
