@@ -7,10 +7,16 @@ import { decryptSecret } from '@/lib/crypto'
 import { db } from '@/lib/db'
 import { userSettings } from '@/lib/db/schema'
 
+/*
+ * `||` rather than `??` on purpose: an environment variable that exists but is
+ * empty — easy to create by pasting a template into a hosting dashboard — would
+ * otherwise be sent as the model and rejected with "you must provide a model
+ * parameter".
+ */
 export const DEFAULT_MODELS = {
-  chat: process.env.OPENAI_CHAT_MODEL ?? 'gpt-4o',
-  stt: process.env.OPENAI_STT_MODEL ?? 'gpt-4o-transcribe',
-  tts: process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts',
+  chat: process.env.OPENAI_CHAT_MODEL || 'gpt-4o',
+  stt: process.env.OPENAI_STT_MODEL || 'gpt-4o-transcribe',
+  tts: process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts',
 } as const
 
 /** Thrown when the user has not saved an OpenAI key yet. */
@@ -56,6 +62,16 @@ export async function getUserAi(userId: string): Promise<UserAi> {
     throw new AiError('Your stored API key could not be read. Please save it again.', 500)
   }
 
+  const models = {
+    chat: settings.chatModel?.trim() || DEFAULT_MODELS.chat,
+    stt: settings.sttModel?.trim() || DEFAULT_MODELS.stt,
+    tts: settings.ttsModel?.trim() || DEFAULT_MODELS.tts,
+  }
+
+  for (const [role, id] of Object.entries(models)) {
+    if (!id) throw new AiError(`No ${role} model is configured. Pick one in Settings.`, 500)
+  }
+
   return {
     client: new OpenAI({
       apiKey,
@@ -64,11 +80,7 @@ export async function getUserAi(userId: string): Promise<UserAi> {
       // Lets the app point at an OpenAI-compatible gateway (or a test double).
       ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
     }),
-    models: {
-      chat: settings.chatModel || DEFAULT_MODELS.chat,
-      stt: settings.sttModel || DEFAULT_MODELS.stt,
-      tts: settings.ttsModel || DEFAULT_MODELS.tts,
-    },
+    models,
     voice: settings.voice || 'alloy',
   }
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { VOICE_IDS } from '@/lib/voices'
 import {
   CORRECTION_CATEGORIES,
   ENGLISH_LEVELS,
@@ -19,11 +20,30 @@ export const passwordSchema = z
   .min(8, 'Use at least 8 characters.')
   .max(200, 'That password is too long.')
 
-export const signUpSchema = z.object({
-  name: z.string().trim().min(2, 'Tell us your name.').max(60),
-  email: emailSchema,
-  password: passwordSchema,
-})
+export const signUpSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Tell us your name.').max(60),
+    email: emailSchema,
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  // Without email delivery there is no reset link, so a typo here would lock
+  // the account out for good. Confirming is the only safety net.
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'The two passwords do not match.',
+    path: ['confirmPassword'],
+  })
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Enter your current password.'),
+    password: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'The two passwords do not match.',
+    path: ['confirmPassword'],
+  })
 
 export const signInSchema = z.object({
   email: emailSchema,
@@ -62,7 +82,7 @@ export const aiPreferencesSchema = z.object({
   chatModel: z.string().trim().max(60).nullable(),
   sttModel: z.string().trim().max(60).nullable(),
   ttsModel: z.string().trim().max(60).nullable(),
-  voice: z.enum(['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']),
+  voice: z.enum(VOICE_IDS),
 })
 
 export const startConversationSchema = z.object({

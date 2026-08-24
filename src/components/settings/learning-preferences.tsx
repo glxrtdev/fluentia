@@ -5,10 +5,20 @@ import { CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
-import { Field, Input, Select } from '@/components/ui/field'
+import { Field, Input } from '@/components/ui/field'
+import { Select } from '@/components/ui/select'
 import { updateProfile } from '@/lib/actions/profile'
 import { ENGLISH_LEVELS, MAIN_GOALS } from '@/lib/db/schema'
+import type { SelectOption } from '@/components/ui/select'
 import { cn, LEVEL_LABELS } from '@/lib/utils'
+
+const LEVEL_HINTS: Record<string, string> = {
+  beginner: 'I know some words but I freeze when I speak.',
+  elementary: 'I manage simple sentences about familiar things.',
+  intermediate: 'I hold a conversation but I make mistakes.',
+  'upper-intermediate': 'I speak comfortably; I want precision.',
+  advanced: 'I am fluent; I want nuance and natural phrasing.',
+}
 
 const GOAL_LABELS: Record<string, string> = {
   travel: 'Travel',
@@ -19,7 +29,24 @@ const GOAL_LABELS: Record<string, string> = {
   fluency: 'Fluency',
 }
 
-const LANGUAGES = [
+const LEVEL_OPTIONS: SelectOption[] = ENGLISH_LEVELS.map((level) => ({
+  value: level,
+  label: LEVEL_LABELS[level],
+  description: LEVEL_HINTS[level],
+}))
+
+const GOAL_OPTIONS: SelectOption[] = [
+  { value: '', label: 'No specific goal' },
+  ...MAIN_GOALS.map((goal) => ({ value: goal, label: GOAL_LABELS[goal] })),
+]
+
+const MINUTE_OPTIONS: SelectOption[] = [10, 20, 30, 60].map((minutes) => ({
+  value: String(minutes),
+  label: `${minutes} minutes`,
+  description: minutes <= 10 ? 'Short and easy to keep up' : minutes >= 60 ? 'Serious commitment' : undefined,
+}))
+
+const LANGUAGES: SelectOption[] = [
   { value: 'pt-BR', label: 'Portuguese (Brazil)' },
   { value: 'pt-PT', label: 'Portuguese (Portugal)' },
   { value: 'es', label: 'Spanish' },
@@ -63,44 +90,27 @@ export function LearningPreferences({
           </Field>
 
           <Field label="Native language" error={state?.errors?.nativeLanguage}>
-            <Select name="nativeLanguage" defaultValue={profile.nativeLanguage}>
-              {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>
-                  {l.label}
-                </option>
-              ))}
-            </Select>
+            <Select
+              name="nativeLanguage"
+              defaultValue={profile.nativeLanguage}
+              options={LANGUAGES}
+            />
           </Field>
 
           <Field label="English level" error={state?.errors?.level}>
-            <Select name="level" defaultValue={profile.level}>
-              {ENGLISH_LEVELS.map((level) => (
-                <option key={level} value={level}>
-                  {LEVEL_LABELS[level]}
-                </option>
-              ))}
-            </Select>
+            <Select name="level" defaultValue={profile.level} options={LEVEL_OPTIONS} />
           </Field>
 
           <Field label="Main goal" error={state?.errors?.mainGoal}>
-            <Select name="mainGoal" defaultValue={profile.mainGoal ?? ''}>
-              <option value="">No specific goal</option>
-              {MAIN_GOALS.map((goal) => (
-                <option key={goal} value={goal}>
-                  {GOAL_LABELS[goal]}
-                </option>
-              ))}
-            </Select>
+            <Select name='mainGoal' defaultValue={profile.mainGoal ?? ''} options={GOAL_OPTIONS} />
           </Field>
 
           <Field label="Daily practice" error={state?.errors?.dailyMinutesGoal}>
-            <Select name="dailyMinutesGoal" defaultValue={String(profile.dailyMinutesGoal)}>
-              {[10, 20, 30, 60].map((m) => (
-                <option key={m} value={m}>
-                  {m} minutes
-                </option>
-              ))}
-            </Select>
+            <Select
+              name="dailyMinutesGoal"
+              defaultValue={String(profile.dailyMinutesGoal)}
+              options={MINUTE_OPTIONS}
+            />
           </Field>
 
           <Field

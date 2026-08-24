@@ -5,17 +5,22 @@ import { CheckCircle2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader } from '@/components/ui/card'
-import { Field, Input, Select } from '@/components/ui/field'
+import { Field } from '@/components/ui/field'
+import { Select, type SelectOption } from '@/components/ui/select'
+import { VoicePicker } from '@/components/settings/voice-picker'
 import { updateAiPreferences } from '@/lib/actions/ai'
 
-const VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']
-
 export function AiPreferences({
-  defaults,
+  models,
   current,
 }: {
-  defaults: { chat: string; stt: string; tts: string }
-  current: { chatModel: string | null; sttModel: string | null; ttsModel: string | null; voice: string }
+  models: { chat: SelectOption[]; stt: SelectOption[]; tts: SelectOption[] }
+  current: {
+    chatModel: string | null
+    sttModel: string | null
+    ttsModel: string | null
+    voice: string
+  }
 }) {
   const [state, formAction, pending] = useActionState(updateAiPreferences, undefined)
 
@@ -23,51 +28,49 @@ export function AiPreferences({
     <Card>
       <CardHeader
         title="Models and voice"
-        hint="Leave a field empty to use the default. Cheaper models cost less per session but usually correct less accurately."
+        hint="Every model here is billed to your own OpenAI account. Cheaper ones cost less per session and usually correct less accurately."
       />
 
       <form action={formAction} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Conversation model" error={state?.errors?.chatModel}>
-            <Input
-              name="chatModel"
-              defaultValue={current.chatModel ?? ''}
-              placeholder={defaults.chat}
-              spellCheck={false}
-              className="font-mono text-[0.8125rem]"
-            />
+          <Field
+            label="Conversation"
+            error={state?.errors?.chatModel}
+            hint="Writes the teacher's replies and finds your mistakes."
+          >
+            <Select name="chatModel" options={models.chat} defaultValue={current.chatModel ?? ''} />
           </Field>
 
-          <Field label="Transcription model" error={state?.errors?.sttModel}>
-            <Input
-              name="sttModel"
-              defaultValue={current.sttModel ?? ''}
-              placeholder={defaults.stt}
-              spellCheck={false}
-              className="font-mono text-[0.8125rem]"
-            />
+          <Field
+            label="Transcription"
+            error={state?.errors?.sttModel}
+            hint="Turns what you say into text."
+          >
+            <Select name="sttModel" options={models.stt} defaultValue={current.sttModel ?? ''} />
           </Field>
 
-          <Field label="Speech model" error={state?.errors?.ttsModel}>
-            <Input
-              name="ttsModel"
-              defaultValue={current.ttsModel ?? ''}
-              placeholder={defaults.tts}
-              spellCheck={false}
-              className="font-mono text-[0.8125rem]"
-            />
+          <Field
+            label="Speech"
+            error={state?.errors?.ttsModel}
+            hint="Gives the teacher a voice."
+          >
+            <Select name="ttsModel" options={models.tts} defaultValue={current.ttsModel ?? ''} />
           </Field>
 
-          <Field label="Teacher voice" error={state?.errors?.voice}>
-            <Select name="voice" defaultValue={current.voice}>
-              {VOICES.map((voice) => (
-                <option key={voice} value={voice}>
-                  {voice}
-                </option>
-              ))}
-            </Select>
+          <Field
+            label="Teacher voice"
+            error={state?.errors?.voice}
+            className="sm:col-span-2"
+          >
+            <VoicePicker defaultValue={current.voice} />
           </Field>
         </div>
+
+        {state?.errors?.form && (
+          <p role="alert" className="text-[0.8125rem] font-medium text-rose">
+            {state.errors.form}
+          </p>
+        )}
 
         {state?.ok && state.message && (
           <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-brand-600 dark:text-brand-400">

@@ -5,15 +5,20 @@ import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { AiPreferences } from '@/components/settings/ai-preferences'
 import { ApiKeyPanel } from '@/components/settings/api-key-panel'
 import { LearningPreferences } from '@/components/settings/learning-preferences'
+import { PasswordPanel } from '@/components/settings/password-panel'
 import { Card } from '@/components/ui/card'
 import { getProfile, getSettings, requireUser } from '@/lib/auth/session'
 import { DEFAULT_MODELS } from '@/lib/openai/client'
+import { loadModelOptions } from '@/lib/openai/models'
 
 export const metadata: Metadata = { title: 'Settings' }
 
 export default async function SettingsPage() {
   const user = await requireUser()
   const [profile, settings] = await Promise.all([getProfile(user.id), getSettings(user.id)])
+
+  // Offered from the recommended set plus whatever this account can reach.
+  const models = await loadModelOptions(user.id, DEFAULT_MODELS)
 
   return (
     <PageShell>
@@ -31,7 +36,7 @@ export default async function SettingsPage() {
         />
 
         <AiPreferences
-          defaults={{ chat: DEFAULT_MODELS.chat, stt: DEFAULT_MODELS.stt, tts: DEFAULT_MODELS.tts }}
+          models={models}
           current={{
             chatModel: settings.chatModel,
             sttModel: settings.sttModel,
@@ -51,6 +56,8 @@ export default async function SettingsPage() {
             interests: profile.interests,
           }}
         />
+
+        <PasswordPanel />
 
         <Card className="bg-surface-2">
           <div className="flex gap-3">

@@ -116,6 +116,7 @@ async function signupJourney() {
   form.set('name', 'Journey Tester')
   form.set('email', `journey-${stamp}@fluentia.test`)
   form.set('password', 'sup3r-secret-pass')
+  form.set('confirmPassword', 'sup3r-secret-pass')
 
   const signup = track(await call('/signup', { method: 'POST', body: form }))
   record(
@@ -145,6 +146,37 @@ async function signupJourney() {
   record('a fresh account is told to add its OpenAI key', body.includes('One step left'))
   record('a fresh account starts with no practice', body.includes('Streak'))
 
+  // A mistyped confirmation must not create an account: there is no reset email.
+  const mismatchPage = await call('/signup')
+  const mismatch = new FormData()
+  for (const [name, value] of hiddenFields(await mismatchPage.text())) mismatch.set(name, value)
+  mismatch.set('name', 'Typo Tester')
+  mismatch.set('email', `typo-${stamp}@fluentia.test`)
+  mismatch.set('password', 'sup3r-secret-pass')
+  mismatch.set('confirmPassword', 'sup3r-secret-typo')
+  const mismatched = await call('/signup', { method: 'POST', body: mismatch })
+  const mismatchBody = await mismatched.text()
+  record(
+    'a mistyped password confirmation is refused',
+    mismatched.status === 200 && /do not match/i.test(mismatchBody),
+    `status ${mismatched.status}`,
+  )
+  const [leaked] = await sql`select count(*)::int as n from users where email = ${`typo-${stamp}@fluentia.test`}`
+  record('the refused signup created no account', leaked.n === 0)
+
+  // The password just set must actually sign in.
+  const loginPage = await call('/login')
+  const loginForm = new FormData()
+  for (const [name, value] of hiddenFields(await loginPage.text())) loginForm.set(name, value)
+  loginForm.set('email', `journey-${stamp}@fluentia.test`)
+  loginForm.set('password', 'sup3r-secret-pass')
+  const loggedIn = await call('/login', { method: 'POST', body: loginForm })
+  record(
+    'the password chosen at signup signs you in',
+    loggedIn.status === 303 && loggedIn.headers.get('location') === '/dashboard',
+    `status ${loggedIn.status} -> ${loggedIn.headers.get('location')}`,
+  )
+
   // Signing up twice with the same email must be refused.
   const duplicatePage = await call('/signup')
   const duplicateForm = new FormData()
@@ -154,6 +186,7 @@ async function signupJourney() {
   duplicateForm.set('name', 'Journey Tester')
   duplicateForm.set('email', `journey-${stamp}@fluentia.test`)
   duplicateForm.set('password', 'another-password')
+  duplicateForm.set('confirmPassword', 'another-password')
 
   const duplicate = await call('/signup', { method: 'POST', body: duplicateForm })
   const duplicateBody = await duplicate.text()
@@ -305,6 +338,20 @@ async function main() {
         body: JSON.stringify({ word: 'x', definition: 'y' }),
       })
     ).status === 401,
+  )
+
+  /* voice preview is guarded like every other paid endpoint */
+  record(
+    'voice preview is 401 for anonymous',
+    (await call('/api/speech/preview?voice=coral')).status === 401,
+  )
+  record(
+    'voice preview rejects an unknown voice',
+    (await call('/api/speech/preview?voice=not-a-voice', {}, owner.cookie)).status === 400,
+  )
+  record(
+    'voice preview without a key returns 428',
+    (await call('/api/speech/preview?voice=coral', {}, owner.cookie)).status === 428,
   )
 
   /* dictionary proxy */

@@ -67,6 +67,19 @@ export function AuthForm({ mode, action }: { mode: 'login' | 'signup'; action: A
           />
         </Field>
 
+        {/* There is no reset email, so a typo here has to be caught now. */}
+        {isSignup && (
+          <Field label="Confirm password" error={errors.confirmPassword}>
+            <Input
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              placeholder="••••••••"
+              required
+            />
+          </Field>
+        )}
+
         <Button type="submit" size="lg" loading={pending} className="w-full">
           {isSignup ? 'Create account' : 'Log in'}
         </Button>

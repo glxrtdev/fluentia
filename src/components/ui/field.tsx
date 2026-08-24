@@ -22,23 +22,6 @@ export const Textarea = forwardRef<
   return <textarea ref={ref} className={cn(control, 'min-h-24 resize-y', className)} {...props} />
 })
 
-export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  function Select({ className, ...props }, ref) {
-    return (
-      <select
-        ref={ref}
-        className={cn(control, 'cursor-pointer appearance-none bg-no-repeat pr-9', className)}
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236d757f' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 6.5 8 10.5 12 6.5'/%3E%3C/svg%3E\")",
-          backgroundPosition: 'right 0.75rem center',
-        }}
-        {...props}
-      />
-    )
-  },
-)
-
 export function Field({
   label,
   hint,

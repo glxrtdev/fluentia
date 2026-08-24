@@ -10,10 +10,15 @@ const VOICE_INSTRUCTIONS =
  * Text to speech, streamed straight through to the browser so the teacher
  * starts talking before the whole clip is generated.
  */
-export async function speak(ai: UserAi, text: string): Promise<ReadableStream<Uint8Array>> {
+export async function speak(
+  ai: UserAi,
+  text: string,
+  /** Auditioning a voice happens before it is saved, so it is passed in. */
+  voice?: string,
+): Promise<ReadableStream<Uint8Array>> {
   const response = await ai.client.audio.speech.create({
     model: ai.models.tts,
-    voice: ai.voice,
+    voice: voice || ai.voice,
     input: text.slice(0, 4000),
     response_format: 'mp3',
     // `instructions` is ignored by the older tts-1 models and honoured by gpt-4o-mini-tts.
