@@ -11,10 +11,23 @@ const MIME_CANDIDATES = [
 
 /** Below this RMS the microphone is considered quiet. */
 const SILENCE_THRESHOLD = 0.012
-/** How long the learner must be quiet before we assume the turn is over. */
-const SILENCE_MS = 1400
-/** If nothing is ever said, give up rather than uploading noise. */
-const NO_SPEECH_TIMEOUT_MS = 7000
+
+/*
+ * How long the learner may be quiet before the turn is sent.
+ *
+ * Generous on purpose: pausing to think is part of speaking a second language,
+ * and being cut off mid-sentence is far more disruptive than waiting. Anyone in
+ * a hurry taps the stop button, which sends immediately.
+ */
+const SILENCE_MS = 10_000
+
+/*
+ * If nothing is ever said, give up rather than uploading noise. It has to
+ * outlast SILENCE_MS: otherwise thinking before the first word would cancel the
+ * recording before it began.
+ */
+const NO_SPEECH_TIMEOUT_MS = 15_000
+
 const MAX_TURN_MS = 90_000
 
 export type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'unsupported' | 'denied'

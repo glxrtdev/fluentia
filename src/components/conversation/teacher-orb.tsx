@@ -7,7 +7,7 @@ export type Phase = 'ready' | 'idle' | 'listening' | 'thinking' | 'speaking'
 const STATUS: Record<Phase, { label: string; hint: string }> = {
   ready: { label: 'Ready when you are', hint: 'Tap to let your teacher start talking' },
   idle: { label: 'Your turn', hint: 'Tap the microphone and answer out loud' },
-  listening: { label: 'Listening', hint: 'Stop talking and it submits on its own' },
+  listening: { label: 'Listening', hint: 'Take your time — tap the square when you are done' },
   thinking: { label: 'Thinking', hint: 'Working out what to say next' },
   speaking: { label: 'Speaking', hint: 'Corrections appear beside you while it talks' },
 }
