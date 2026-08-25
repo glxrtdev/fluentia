@@ -19,7 +19,8 @@
     "test": "node --test tests/migration.test.mjs tests/domain.test.mjs tests/transcript-marks.test.mjs tests/dictionary.test.mjs",
     "test:smoke": "node --env-file-if-exists=.env.local tests/smoke.mjs",
     "test:voice": "node --env-file-if-exists=.env.local tests/voice-loop.mjs",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "test:responsive": "node --env-file-if-exists=.env.local tests/responsive.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -40,6 +41,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "drizzle-kit": "^0.31.10",
+    "playwright": "^1.62.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"

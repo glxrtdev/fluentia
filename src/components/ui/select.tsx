@@ -53,6 +53,7 @@ export function Select({
   const [value, setValue] = useState(defaultValue ?? '')
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(0)
+  const [dropUp, setDropUp] = useState(false)
 
   const rootRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -102,6 +103,15 @@ export function Select({
     if (disabled) return
     const index = selectable.findIndex((option) => option.value === value)
     setActive(index >= 0 ? index : 0)
+
+    /*
+     * A list that opens downward from a trigger near the bottom of a phone
+     * lands off the screen. Measure the room below before choosing a side.
+     */
+    const trigger = rootRef.current?.getBoundingClientRect()
+    const below = trigger ? window.innerHeight - trigger.bottom : Infinity
+    setDropUp(below < 220 && trigger !== undefined && trigger.top > below)
+
     setOpen(true)
   }
 
@@ -176,7 +186,10 @@ export function Select({
         onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={onKeyDown}
         className={cn(
-          'flex w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 py-2 text-left',
+          // 44px is the smallest comfortable tap target, and it is kept all the
+          // way to lg — where the app switches to the pointer-driven sidebar
+          // layout. The desktop density is left exactly as it was.
+          'flex min-h-11 w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 py-2 text-left lg:min-h-0',
           'text-[0.875rem] transition-colors duration-150 disabled:opacity-50',
           'focus:outline-none focus:ring-2 focus:ring-brand-500/25',
           open ? 'border-brand-500' : 'border-line hover:border-line-strong',
@@ -202,8 +215,9 @@ export function Select({
           aria-labelledby={controlId}
           tabIndex={-1}
           className={cn(
-            'absolute z-50 mt-1.5 max-h-72 w-full overflow-y-auto rounded-control border border-line',
+            'absolute z-50 max-h-72 w-full overflow-y-auto rounded-control border border-line',
             'bg-surface p-1 shadow-[var(--shadow-lift)] scroll-slim animate-fade-in',
+            dropUp ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
           )}
         >
           {groups.map(([group, entries]) => (
@@ -227,7 +241,7 @@ export function Select({
                       onMouseEnter={() => index >= 0 && setActive(index)}
                       onClick={() => !option.disabled && commit(option.value)}
                       className={cn(
-                        'flex cursor-pointer items-start gap-2 rounded-[0.4rem] px-2.5 py-2 transition-colors',
+                        'flex min-h-11 cursor-pointer items-start gap-2 rounded-[0.4rem] px-2.5 py-2 transition-colors lg:min-h-0',
                         isActive && 'bg-surface-2',
                         option.disabled && 'cursor-not-allowed opacity-40',
                       )}

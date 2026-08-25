@@ -128,7 +128,7 @@ export default async function MistakesPage({
           {opened && (
             <Card className="mt-6 animate-fade-up border-brand-500/25">
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={STATUS_TONE[opened.status]}>{opened.status}</Badge>
                     <Badge>{CATEGORY_LABELS[opened.category]}</Badge>
@@ -203,8 +203,48 @@ export default async function MistakesPage({
           )}
 
           {/* Table */}
-          <div className="mt-6 overflow-x-auto rounded-card border border-line bg-surface scroll-slim">
-            <table className="w-full min-w-[34rem] text-left">
+          {/*
+            Phones get a list, not a table. A four-column grid only fits by
+            scrolling sideways, and sideways scrolling inside a page is a
+            reliable way to lose people.
+          */}
+          <ul className="mt-6 divide-y divide-line overflow-hidden rounded-card border border-line bg-surface sm:hidden">
+            {filtered.map((mistake) => (
+              <li key={mistake.id}>
+                <Link
+                  href={`/mistakes?${category ? `category=${category}&` : ''}open=${mistake.id}`}
+                  className={cn(
+                    'flex items-start justify-between gap-3 px-4 py-3.5',
+                    mistake.status === 'resolved' && 'opacity-55',
+                  )}
+                >
+                  <span className="min-w-0">
+                    <span className="block break-words text-[0.9375rem] leading-snug">
+                      <span className="text-muted line-through decoration-rose/40">
+                        {mistake.original}
+                      </span>
+                      <span className="mx-1.5 text-faint">→</span>
+                      <span className="font-medium text-ink">{mistake.corrected}</span>
+                    </span>
+                    <span className="mt-1 block text-[0.75rem] text-faint">
+                      {CATEGORY_LABELS[mistake.category]}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-pill px-2 py-0.5 text-[0.75rem] font-bold tabular-nums',
+                      mistake.occurrences >= 5 ? 'bg-rose/10 text-rose' : 'bg-surface-2 text-muted',
+                    )}
+                  >
+                    {mistake.occurrences}×
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <div className="mt-6 hidden overflow-x-auto rounded-card border border-line bg-surface scroll-slim sm:block">
+            <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-line text-[0.75rem] font-medium text-muted">
                   <th className="px-4 py-3 sm:px-5">Mistake</th>

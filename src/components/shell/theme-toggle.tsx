@@ -49,7 +49,7 @@ export function ThemeToggle({ initial = 'system' }: { initial?: string }) {
       title={`Theme: ${theme}`}
       aria-label={`Theme: ${theme}. Click to change.`}
       className={cn(
-        'rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-ink',
+        'flex size-9 items-center justify-center rounded-control text-faint transition-colors hover:bg-surface-2 hover:text-ink',
       )}
     >
       <Icon className="size-4" />

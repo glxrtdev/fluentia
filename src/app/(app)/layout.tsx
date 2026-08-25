@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
-import { MobileChrome, Sidebar } from '@/components/shell/sidebar'
+import { MobileChrome } from '@/components/shell/mobile-nav'
+import { Sidebar } from '@/components/shell/sidebar'
 import { signOut } from '@/lib/auth/actions'
 import { getProfile, getSettings, requireUser } from '@/lib/auth/session'
 
@@ -30,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Sidebar user={shellUser} signOut={signOut} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <MobileChrome user={shellUser} />
+        <MobileChrome user={shellUser} signOut={signOut} />
         <main id="main" data-app-main className="min-w-0 flex-1 pb-24 lg:pb-0">
           {children}
         </main>

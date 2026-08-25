@@ -33,6 +33,15 @@ export const viewport: Viewport = {
   ],
   width: 'device-width',
   initialScale: 1,
+  /*
+   * Fixed scale: Fluentia is used as an app, and pinch-zoom on a voice screen
+   * mostly happens by accident. iOS Safari has ignored user-scalable since iOS
+   * 10, so the zoom that actually bites — Safari enlarging the page when you
+   * focus an input under 16px — is prevented by the input sizes instead.
+   */
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 }
 
 /** Applied before paint so the theme never flashes. */

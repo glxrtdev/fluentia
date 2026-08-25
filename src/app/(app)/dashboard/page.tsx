@@ -122,10 +122,16 @@ export default async function DashboardPage() {
         />
         <Stat label="XP" value={formatNumber(profile.xp)} icon={<Zap className="size-3" />} />
 
-        {/* Three-week strip: real practice, one square per day. */}
+        {/*
+          Three-week strip: real practice, one square per day.
+
+          The squares share the row rather than each claiming a fixed 12px —
+          twenty-one of those are wider than a small phone, and a fixed size
+          pushed the whole stats card off the screen.
+        */}
         <div className="col-span-2 border-t border-line pt-5 sm:col-span-4">
-          <div className="flex items-end justify-between gap-3">
-            <div className="flex gap-1">
+          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+            <div className="flex min-w-0 flex-1 gap-[3px] sm:gap-1">
               {calendar.map((day) => {
                 const intensity =
                   day.seconds === 0 ? 0 : day.seconds < 300 ? 1 : day.seconds < 900 ? 2 : 3
@@ -134,7 +140,7 @@ export default async function DashboardPage() {
                     key={day.day}
                     title={`${day.day} · ${formatDuration(day.seconds)}`}
                     className={cn(
-                      'size-3 rounded-[0.25rem] transition-colors',
+                      'h-3 min-w-0 flex-1 rounded-[0.25rem] transition-colors sm:max-w-3',
                       intensity === 0 && 'bg-surface-2',
                       intensity === 1 && 'bg-brand-500/30',
                       intensity === 2 && 'bg-brand-500/60',
@@ -144,7 +150,7 @@ export default async function DashboardPage() {
                 )
               })}
             </div>
-            <p className="text-[0.6875rem] text-faint">last 21 days</p>
+            <p className="shrink-0 text-[0.6875rem] text-faint">last 21 days</p>
           </div>
         </div>
       </div>
@@ -249,7 +255,7 @@ export default async function DashboardPage() {
 
       {/* Learning */}
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <section>
+        <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <SectionTitle>Where you slip</SectionTitle>
             <Link
@@ -274,7 +280,7 @@ export default async function DashboardPage() {
                   href={`/mistakes?open=${mistake.id}`}
                   className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-surface-2 sm:px-5"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-[0.875rem]">
                       <span className="text-muted line-through decoration-rose/50">
                         {mistake.original}
@@ -295,7 +301,7 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section>
+        <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
             <SectionTitle>Recent sessions</SectionTitle>
             <Link
@@ -328,7 +334,7 @@ export default async function DashboardPage() {
                   href={`/sessions/${session.id}`}
                   className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-surface-2 sm:px-5"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-[0.875rem] font-medium text-ink">
                       {session.topicLabel}
                     </p>

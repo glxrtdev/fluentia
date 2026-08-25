@@ -168,9 +168,14 @@
   html {
     -webkit-tap-highlight-color: transparent;
     scroll-behavior: smooth;
+    /* Kills the double-tap-to-zoom delay and gesture on touch devices. */
+    touch-action: manipulation;
+    /* Nothing should be draggable sideways, whatever a child does. */
+    overflow-x: hidden;
   }
 
   body {
+    overflow-x: hidden;
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);

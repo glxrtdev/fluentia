@@ -395,7 +395,7 @@ export function ConversationRoom({
     <div data-room className="flex h-[calc(100dvh-3.5rem)] flex-col lg:h-dvh">
       {/* Header */}
       <header className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-6">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{topicLabel}</p>
           <p className="flex items-center gap-1.5 text-xs text-muted">
             <span>{LEVEL_LABELS[level] ?? level}</span>
@@ -499,7 +499,7 @@ export function ConversationRoom({
             </div>
           )}
 
-          <div className="flex justify-center pt-2">{micButton}</div>
+          <div data-mic className="flex justify-center pt-2">{micButton}</div>
         </section>
 
         {/* Feedback */}
@@ -519,9 +519,14 @@ export function ConversationRoom({
 
       {/* End-of-session dialog */}
       {confirmEnd && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="end-session-title"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-4 backdrop-blur-sm sm:items-center"
+        >
           <div className="w-full max-w-sm animate-fade-up rounded-card border border-line bg-surface p-6 shadow-[var(--shadow-lift)]">
-            <h2 className="display text-xl text-ink">
+            <h2 id="end-session-title" className="display text-xl text-ink">
               {spokeOnce ? 'End this session?' : 'Leave without speaking?'}
             </h2>
             <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">

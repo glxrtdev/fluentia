@@ -76,14 +76,14 @@ export function PronounceButton({
       title={status === 'failed' ? 'Audio is unavailable for this word' : `Hear "${word}"`}
       aria-label={`Hear how to say ${word}`}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-pill border px-2.5 py-1 text-[0.75rem] font-medium transition-colors',
+        'inline-flex h-8 items-center gap-1.5 rounded-pill border px-3 text-[0.75rem] font-medium transition-colors',
         status === 'failed'
           ? 'border-line text-faint'
           : status === 'playing'
             ? 'border-brand-500/30 bg-brand-500/8 text-brand-600 dark:text-brand-400'
             : 'border-line text-muted hover:border-line-strong hover:text-ink',
         status === 'loading' && 'opacity-60',
-        !label && 'px-2',
+        !label && 'w-8 justify-center px-0',
         className,
       )}
     >

@@ -17,7 +17,7 @@ export function PageHeader({
     <header
       className={cn('flex flex-wrap items-end justify-between gap-4', className)}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         {eyebrow && (
           <p className="mb-2.5 text-[0.75rem] font-medium text-brand-600 dark:text-brand-400">
             {eyebrow}

@@ -98,7 +98,7 @@ export function ApiKeyPanel({
               placeholder="sk-..."
               autoComplete="off"
               spellCheck={false}
-              className="pr-11 font-mono text-[0.8125rem]"
+              className="pr-11 font-mono sm:text-[0.8125rem]"
               required
             />
             <button

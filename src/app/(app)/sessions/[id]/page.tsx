@@ -127,7 +127,7 @@ export default async function SessionReportPage({
           <div className="mt-8 grid gap-6 lg:grid-cols-2">
             {/* Main mistakes */}
             {report.mainMistakes.length > 0 && (
-              <section>
+              <section className="min-w-0">
                 <SectionTitle className="mb-4">Your main mistakes</SectionTitle>
                 <Card className="p-0">
                   <ol className="divide-y divide-line">
@@ -151,7 +151,7 @@ export default async function SessionReportPage({
 
             {/* Recommendations */}
             {report.recommendations.length > 0 && (
-              <section>
+              <section className="min-w-0">
                 <SectionTitle className="mb-4">For your next session</SectionTitle>
                 <Card>
                   <ul className="space-y-3">
@@ -177,7 +177,7 @@ export default async function SessionReportPage({
 
             {/* New words */}
             {report.newWords.length > 0 && (
-              <section>
+              <section className="min-w-0">
                 <SectionTitle className="mb-4">New words</SectionTitle>
                 <Card className="p-0">
                   <ul className="divide-y divide-line">
@@ -186,7 +186,7 @@ export default async function SessionReportPage({
                         key={entry.word}
                         className="flex items-start justify-between gap-3 p-4 sm:px-5"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-[0.875rem] font-semibold text-ink">{entry.word}</p>
                           <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
                             {entry.meaning}
@@ -202,7 +202,7 @@ export default async function SessionReportPage({
 
             {/* Expressions */}
             {report.expressions.length > 0 && (
-              <section>
+              <section className="min-w-0">
                 <SectionTitle className="mb-4">Interesting expressions</SectionTitle>
                 <Card className="p-0">
                   <ul className="divide-y divide-line">
@@ -211,7 +211,7 @@ export default async function SessionReportPage({
                         key={entry.expression}
                         className="flex items-start justify-between gap-3 p-4 sm:px-5"
                       >
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="flex items-center gap-2 text-[0.875rem] font-semibold text-ink">
                             <Quote className="size-3 shrink-0 text-brand-500" />
                             {entry.expression}

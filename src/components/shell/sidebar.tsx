@@ -6,16 +6,10 @@ import { Flame, LogOut, Plus } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
-import { GROUP_LABELS, MOBILE_NAV, NAV, type NavItem } from '@/components/shell/nav'
+import { GROUP_LABELS, NAV, type NavItem } from '@/components/shell/nav'
 import { cn, formatNumber, initials } from '@/lib/utils'
 
-type ShellUser = {
-  name: string
-  email: string
-  xp: number
-  streak: number
-  theme: string
-}
+import type { ShellUser } from '@/components/shell/mobile-nav'
 
 const isActive = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`)
@@ -97,7 +91,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
             <button
               type="submit"
               aria-label="Log out"
-              className="rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-ink"
+              className="flex size-9 items-center justify-center rounded-control text-faint transition-colors hover:bg-surface-2 hover:text-ink"
             >
               <LogOut className="size-4" />
             </button>
@@ -105,55 +99,5 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
         </div>
       </div>
     </aside>
-  )
-}
-
-/** Mobile: a compact top bar plus a bottom tab bar. */
-export function MobileChrome({ user }: { user: ShellUser }) {
-  const pathname = usePathname()
-  const items = MOBILE_NAV.map((href) => NAV.find((n) => n.href === href)!).filter(Boolean)
-
-  return (
-    <>
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-canvas/85 px-4 py-3 backdrop-blur-md lg:hidden">
-        <Logo href="/dashboard" />
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1 text-[0.8125rem] font-semibold text-brand-600 dark:text-brand-400">
-            <Flame className="size-3.5" />
-            {user.streak}
-          </span>
-          <ThemeToggle initial={user.theme} />
-        </div>
-      </header>
-
-      <nav data-mobile-nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-line bg-canvas/92 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-        {items.map((item) => {
-          const active = isActive(pathname, item.href)
-          const primary = item.href === '/speak'
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[0.625rem] font-medium"
-            >
-              <span
-                className={cn(
-                  'flex items-center justify-center rounded-full transition-colors',
-                  primary
-                    ? 'size-9 bg-brand-500 text-white '
-                    : cn('size-6', active ? 'text-brand-600 dark:text-brand-400' : 'text-faint'),
-                )}
-              >
-                <item.icon className={primary ? 'size-4' : 'size-[1.15rem]'} />
-              </span>
-              <span className={active ? 'text-ink' : 'text-faint'}>
-                {item.label.replace('My ', '')}
-              </span>
-            </Link>
-          )
-        })}
-      </nav>
-    </>
   )
 }
