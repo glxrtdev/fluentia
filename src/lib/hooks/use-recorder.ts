@@ -30,7 +30,13 @@ const NO_SPEECH_TIMEOUT_MS = 15_000
 
 const MAX_TURN_MS = 90_000
 
-export type RecorderStatus = 'idle' | 'requesting' | 'recording' | 'unsupported' | 'denied'
+export type RecorderStatus =
+  | 'idle'
+  | 'requesting'
+  | 'recording'
+  | 'paused'
+  | 'unsupported'
+  | 'denied'
 
 function pickMimeType() {
   if (typeof MediaRecorder === 'undefined') return null
@@ -61,10 +67,14 @@ export function useRecorder({
   const spokeRef = useRef(false)
   const lastLoudRef = useRef(0)
   const discardRef = useRef(false)
+  /** Lets the level loop be restarted after a pause without rebuilding it. */
+  const tickRef = useRef<(() => void) | null>(null)
+  const pausedAtRef = useRef(0)
 
   const teardown = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
+    tickRef.current = null
 
     audioCtxRef.current?.close().catch(() => {})
     audioCtxRef.current = null
@@ -200,17 +210,52 @@ export function useRecorder({
       rafRef.current = requestAnimationFrame(tick)
     }
 
+    tickRef.current = tick
     rafRef.current = requestAnimationFrame(tick)
   }, [onSegment, onSilentTimeout, status, stop, teardown])
+
+  /**
+   * Holds the recording without losing it. What has been said so far stays in
+   * the buffer, and the silence clocks are shifted forward on resume so the
+   * pause itself is never mistaken for the learner falling quiet.
+   */
+  const pause = useCallback(() => {
+    const recorder = recorderRef.current
+    if (recorder?.state !== 'recording') return
+
+    recorder.pause()
+    pausedAtRef.current = performance.now()
+
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+    setLevel(0)
+    setStatus('paused')
+  }, [])
+
+  const resume = useCallback(() => {
+    const recorder = recorderRef.current
+    if (recorder?.state !== 'paused') return
+
+    const held = performance.now() - pausedAtRef.current
+    startedAtRef.current += held
+    lastLoudRef.current += held
+
+    recorder.resume()
+    setStatus('recording')
+    if (tickRef.current) rafRef.current = requestAnimationFrame(tickRef.current)
+  }, [])
 
   return {
     status,
     level,
     error,
     recording: status === 'recording',
+    paused: status === 'paused',
     preparing: status === 'requesting',
     start,
     stop,
+    pause,
+    resume,
     cancel: () => stop(true),
   }
 }

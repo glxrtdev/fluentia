@@ -7,7 +7,9 @@ import {
   Headphones,
   Loader2,
   Mic,
+  Pause,
   PhoneOff,
+  Play,
   RotateCcw,
   Volume2,
   X,
@@ -57,6 +59,7 @@ export function ConversationRoom({
   const [mobileTab, setMobileTab] = useState<'conversation' | 'feedback'>('conversation')
   const [discarding, startDiscard] = useTransition()
   const [activeCorrection, setActiveCorrection] = useState<string | null>(null)
+  const [paused, setPaused] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const handsFreeRef = useRef(handsFree)
@@ -69,6 +72,9 @@ export function ConversationRoom({
    * then ending straight away left the teacher speaking over the report page.
    */
   const liveRef = useRef(true)
+  const pausedRef = useRef(false)
+  /** A reply that arrived while paused waits here instead of talking over you. */
+  const pendingPlayRef = useRef<string | null>(null)
   const turnAbort = useRef<AbortController | null>(null)
 
   const lastAssistant = useMemo(
@@ -79,10 +85,11 @@ export function ConversationRoom({
   /* ------------------------------------------------------------- timer */
 
   useEffect(() => {
-    if (phase === 'ready') return
+    // Time spent reading is not time spent practising, so the clock stops too.
+    if (phase === 'ready' || paused) return
     const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
     return () => clearInterval(timer)
-  }, [phase])
+  }, [phase, paused])
 
   // Never let the teacher keep talking after the learner navigates away.
   useEffect(
@@ -99,13 +106,18 @@ export function ConversationRoom({
 
   const play = useCallback((messageId: string) => {
     if (!liveRef.current) return
+    if (pausedRef.current) {
+      // Hold it: the learner is reading, not listening.
+      pendingPlayRef.current = messageId
+      return
+    }
     const audio = audioRef.current ?? new Audio()
     audioRef.current = audio
 
     // The teacher's turn ends, the learner's begins — that chain is the whole loop.
     audio.onended = () => {
       setPhase('idle')
-      if (handsFreeRef.current) startListeningRef.current()
+      if (handsFreeRef.current && !pausedRef.current) startListeningRef.current()
     }
     audio.onerror = () => {
       setPhase('idle')
@@ -195,6 +207,51 @@ export function ConversationRoom({
     if (recorder.error) setError(recorder.error)
   }, [recorder.error])
 
+  /* ------------------------------------------------------------- pause */
+
+  /**
+   * Holds the whole session so the learner can read.
+   *
+   * Everything in flight is suspended rather than thrown away: the teacher's
+   * audio keeps its position, a half-spoken answer stays in the recorder, and a
+   * reply that lands mid-pause waits its turn. Resuming picks up whichever of
+   * those was happening.
+   */
+  const togglePause = () => {
+    if (!paused) {
+      pausedRef.current = true
+      setPaused(true)
+      audioRef.current?.pause()
+      recorder.pause()
+      return
+    }
+
+    pausedRef.current = false
+    setPaused(false)
+
+    if (recorder.paused) {
+      recorder.resume()
+      setPhase('listening')
+      return
+    }
+
+    const held = pendingPlayRef.current
+    if (held) {
+      pendingPlayRef.current = null
+      play(held)
+      return
+    }
+
+    const audio = audioRef.current
+    if (audio && audio.paused && audio.currentTime > 0 && !audio.ended) {
+      setPhase('speaking')
+      void audio.play().catch(() => setPhase('idle'))
+      return
+    }
+
+    setPhase('idle')
+  }
+
   /* ------------------------------------------------------------- start */
 
   const begin = () => {
@@ -263,8 +320,23 @@ export function ConversationRoom({
         <div className="flex items-center gap-4">
           <button
             type="button"
+            onClick={togglePause}
+            aria-pressed={paused}
+            aria-label={paused ? 'Resume the session' : 'Pause the session'}
+            className={cn(
+              'rounded-full border p-3 transition-colors',
+              paused
+                ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400'
+                : 'border-line bg-surface text-muted hover:text-ink',
+            )}
+          >
+            {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
+          </button>
+
+          <button
+            type="button"
             onClick={() => (recorder.recording ? recorder.stop() : void recorder.start())}
-            disabled={busy || phase === 'speaking'}
+            disabled={busy || paused || phase === 'speaking'}
             aria-label={recorder.recording ? 'Stop recording' : 'Start speaking'}
             className={cn(
               'relative flex size-16 items-center justify-center rounded-full transition-all duration-200 active:scale-95 disabled:opacity-40',
@@ -288,7 +360,7 @@ export function ConversationRoom({
             )}
           </button>
 
-          {lastAssistant && phase !== 'speaking' && (
+          {lastAssistant && phase !== 'speaking' && !paused && (
             <button
               type="button"
               onClick={() => play(lastAssistant.id)}
@@ -305,6 +377,7 @@ export function ConversationRoom({
         type="button"
         onClick={() => setHandsFree((value) => !value)}
         aria-pressed={handsFree}
+        disabled={paused}
         className={cn(
           'inline-flex items-center gap-2 rounded-pill border px-3.5 py-1.5 text-xs font-medium transition-colors',
           handsFree
@@ -324,8 +397,19 @@ export function ConversationRoom({
       <header className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 sm:px-6">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-ink">{topicLabel}</p>
-          <p className="text-xs text-muted">
-            {LEVEL_LABELS[level] ?? level} · <span className="tabular-nums">{formatClock(seconds)}</span>
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            <span>{LEVEL_LABELS[level] ?? level}</span>
+            <span className="text-faint">·</span>
+            {/* A frozen number reads as a bug unless it says why it stopped. */}
+            <span className={cn('tabular-nums', paused && 'text-faint')}>
+              {formatClock(seconds)}
+            </span>
+            {paused && (
+              <span className="inline-flex items-center gap-1 rounded-pill bg-brand-500/10 px-2 py-0.5 text-[0.6875rem] font-medium text-brand-600 dark:text-brand-400">
+                <Pause className="size-2.5" />
+                Paused
+              </span>
+            )}
           </p>
         </div>
 
@@ -374,7 +458,7 @@ export function ConversationRoom({
           )}
         >
           <div className="flex flex-col items-center gap-6">
-            <TeacherOrb phase={phase} level={recorder.level} />
+            <TeacherOrb phase={paused ? 'paused' : phase} level={recorder.level} />
           </div>
 
           {/*

@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils'
 
-export type Phase = 'ready' | 'idle' | 'listening' | 'thinking' | 'speaking'
+export type Phase = 'ready' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
 const STATUS: Record<Phase, { label: string; hint: string }> = {
   ready: { label: 'Ready when you are', hint: 'Tap to let your teacher start talking' },
@@ -10,6 +10,7 @@ const STATUS: Record<Phase, { label: string; hint: string }> = {
   listening: { label: 'Listening', hint: 'Take your time — tap the square when you are done' },
   thinking: { label: 'Thinking', hint: 'Working out what to say next' },
   speaking: { label: 'Speaking', hint: 'Corrections appear beside you while it talks' },
+  paused: { label: 'Paused', hint: 'Nothing is being recorded — read as long as you like' },
 }
 
 /**
@@ -42,7 +43,7 @@ export function TeacherOrb({ phase, level }: { phase: Phase; level: number }) {
                 ? Math.max(0.16, Math.min(1, level * weight * 1.9 + 0.16))
                 : phase === 'speaking'
                   ? undefined
-                  : phase === 'thinking'
+                  : phase === 'thinking' || phase === 'paused'
                     ? 0.28
                     : weight * 0.42
 
@@ -53,6 +54,7 @@ export function TeacherOrb({ phase, level }: { phase: Phase; level: number }) {
                   'w-[0.28rem] rounded-pill bg-brand-500 transition-[height] duration-100',
                   phase === 'speaking' && 'animate-bar',
                   phase === 'thinking' && 'opacity-40',
+                  phase === 'paused' && 'opacity-30 grayscale',
                 )}
                 style={
                   phase === 'speaking'
