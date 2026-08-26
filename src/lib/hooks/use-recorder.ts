@@ -28,7 +28,18 @@ const SILENCE_MS = 10_000
  */
 const NO_SPEECH_TIMEOUT_MS = 15_000
 
-const MAX_TURN_MS = 90_000
+/*
+ * A turn has no time limit: being cut off mid-sentence is the worst thing this
+ * can do to someone practising out loud, and how long a thought takes is not
+ * something to guess at.
+ *
+ * What is left is the one ceiling that genuinely exists — OpenAI will not
+ * accept an upload above 25MB. It is counted from the recorded bytes as they
+ * arrive rather than estimated from a bitrate, and reaching it stops the turn
+ * and sends it, so nothing said is ever thrown away. At speech bitrates that is
+ * well over half an hour of talking.
+ */
+const MAX_TURN_BYTES = 24 * 1024 * 1024
 
 export type RecorderStatus =
   | 'idle'
@@ -67,6 +78,7 @@ export function useRecorder({
   const spokeRef = useRef(false)
   const lastLoudRef = useRef(0)
   const discardRef = useRef(false)
+  const bytesRef = useRef(0)
   /** Lets the level loop be restarted after a pause without rebuilding it. */
   const tickRef = useRef<(() => void) | null>(null)
   const pausedAtRef = useRef(0)
@@ -132,6 +144,7 @@ export function useRecorder({
 
     streamRef.current = stream
     chunksRef.current = []
+    bytesRef.current = 0
     discardRef.current = false
     spokeRef.current = false
     startedAtRef.current = performance.now()
@@ -141,7 +154,11 @@ export function useRecorder({
     recorderRef.current = recorder
 
     recorder.ondataavailable = (event) => {
-      if (event.data.size > 0) chunksRef.current.push(event.data)
+      if (event.data.size === 0) return
+      chunksRef.current.push(event.data)
+      bytesRef.current += event.data.size
+      // Stop just under the upload ceiling so the turn still sends.
+      if (bytesRef.current >= MAX_TURN_BYTES) stop()
     }
 
     recorder.onstop = () => {
@@ -202,11 +219,6 @@ export function useRecorder({
         stop()
         return
       }
-      if (elapsed > MAX_TURN_MS) {
-        stop()
-        return
-      }
-
       rafRef.current = requestAnimationFrame(tick)
     }
 
