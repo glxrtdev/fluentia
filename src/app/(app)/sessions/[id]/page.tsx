@@ -266,23 +266,36 @@ export default async function SessionReportPage({
           </span>
         </SectionTitle>
 
-        <Card className="space-y-5">
-          {transcript.map((message) => (
-            <div key={message.id}>
-              <p className="mb-1 text-[0.75rem] font-medium text-faint">
-                {message.role === 'assistant' ? 'Teacher' : 'You'}
-              </p>
-              <p
-                className={
-                  message.role === 'assistant'
-                    ? 'text-[0.9375rem] leading-relaxed text-ink'
-                    : 'text-[0.9375rem] leading-relaxed text-ink-soft'
-                }
+        {/* Same bubbles as the live room, so a session does not change shape
+            the moment it ends. */}
+        <Card className="space-y-4">
+          {transcript.map((message) => {
+            const mine = message.role === 'user'
+
+            return (
+              <div
+                key={message.id}
+                className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
               >
-                {message.content}
-              </p>
-            </div>
-          ))}
+                <p
+                  className={`mb-1 px-1 text-[0.75rem] font-medium ${
+                    mine ? 'text-brand-600 dark:text-brand-400' : 'text-faint'
+                  }`}
+                >
+                  {mine ? 'You' : 'Teacher'}
+                </p>
+                <p
+                  className={`max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-[0.9375rem] leading-relaxed text-ink sm:max-w-[80%] ${
+                    mine
+                      ? 'rounded-br-md border-brand-500/30 bg-brand-500/12 dark:bg-brand-500/20'
+                      : 'rounded-bl-md border-line bg-surface-2'
+                  }`}
+                >
+                  {message.content}
+                </p>
+              </div>
+            )
+          })}
         </Card>
       </section>
     </PageShell>

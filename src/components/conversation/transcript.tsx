@@ -38,8 +38,8 @@ function Marked({
         title={`${span.item.original} → ${span.item.corrected}`}
         className={cn(
           'rounded-[0.2rem] px-0.5 underline decoration-rose decoration-wavy underline-offset-[3px]',
-          'transition-colors hover:bg-rose/10',
-          isActive ? 'bg-rose/15 text-ink' : 'text-ink',
+          'transition-colors hover:bg-rose/15',
+          isActive ? 'bg-rose/20 text-ink' : 'text-ink',
         )}
       >
         {content.slice(span.start, span.end)}
@@ -107,35 +107,55 @@ export function Transcript({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-5 overflow-y-auto px-1 py-2 scroll-slim"
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1 py-2 scroll-slim"
       >
-        {messages.map((message) => (
-          <div key={message.id} className="animate-fade-in">
-            <p className="mb-1 text-[0.75rem] font-medium text-faint">
-              {message.role === 'assistant' ? 'Teacher' : 'You'}
-            </p>
-            <p
-              className={cn(
-                'text-[0.9375rem] leading-relaxed',
-                message.role === 'assistant' ? 'text-ink' : 'text-ink-soft',
-              )}
+        {messages.map((message) => {
+          const mine = message.role === 'user'
+
+          return (
+            <div
+              key={message.id}
+              className={cn('flex animate-fade-in flex-col', mine ? 'items-end' : 'items-start')}
             >
-              {message.role === 'user' ? (
-                <Marked
-                  content={message.content}
-                  corrections={byMessage.get(message.id) ?? []}
-                  activeId={activeCorrectionId}
-                  onSelect={onSelectCorrection}
-                />
-              ) : (
-                message.content
-              )}
-            </p>
-          </div>
-        ))}
+              <p
+                className={cn(
+                  'mb-1 px-1 text-[0.75rem] font-medium',
+                  mine ? 'text-brand-600 dark:text-brand-400' : 'text-faint',
+                )}
+              >
+                {mine ? 'You' : 'Teacher'}
+              </p>
+
+              {/*
+                Your own turn is tinted with the brand accent rather than filled
+                with it: the wavy rose marks that show where you slipped have to
+                stay readable on top, and they do not survive a solid iris.
+              */}
+              <div
+                className={cn(
+                  'max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-[0.9375rem] leading-relaxed sm:max-w-[80%]',
+                  mine
+                    ? 'rounded-br-md border-brand-500/30 bg-brand-500/12 text-ink dark:bg-brand-500/20'
+                    : 'rounded-bl-md border-line bg-surface-2 text-ink',
+                )}
+              >
+                {mine ? (
+                  <Marked
+                    content={message.content}
+                    corrections={byMessage.get(message.id) ?? []}
+                    activeId={activeCorrectionId}
+                    onSelect={onSelectCorrection}
+                  />
+                ) : (
+                  message.content
+                )}
+              </div>
+            </div>
+          )
+        })}
 
         {thinking && (
-          <p className="flex items-center gap-2 text-[0.8125rem] text-muted">
+          <p className="flex items-center gap-2 px-1 text-[0.8125rem] text-muted">
             <Loader2 className="size-3.5 animate-spin" />
             Transcribing and thinking…
           </p>
