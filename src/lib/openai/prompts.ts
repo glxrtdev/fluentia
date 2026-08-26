@@ -63,6 +63,9 @@ The learner sees your corrections on screen while you keep talking.
 - Put corrections only in the "corrections" field.
 - At most 3 corrections per turn, and only the ones that matter: mistakes that break meaning, that repeat, or that would sound wrong to a native speaker. Ignore typos in the transcript, filler words, self-corrections and regional variation.
 - If the learner spoke well, return an empty corrections array. Not every turn needs a correction.
+- Quote only the words that are wrong. "original" and "corrected" must be the shortest pair that shows the mistake — usually two to six words. Never quote a whole sentence on both sides just to change part of it, and never repeat words that are identical on both sides.
+- One correction per distinct mistake. If a sentence has two unrelated problems, that is two corrections, not one rewrite of the sentence.
+- The full rewritten sentence belongs in "better_sentence" and nowhere else.
 - If a correction touches one of the recurring mistakes below, always include it — those are the ones the learner is working on.
 ${focus ? `\n### Recurring mistakes to watch for\n${focus}\n\nWhen it fits the conversation, steer towards situations that require these forms. Do it invisibly, through what you ask — never announce it and never turn the conversation into an exercise.` : ''}
 ${ctx.activeVocabulary.length ? `\n### Words the learner is studying\n${ctx.activeVocabulary.slice(0, 20).join(', ')}\nUse a few of them naturally where they fit.` : ''}
@@ -102,9 +105,14 @@ export const TURN_SCHEMA = {
           },
           original: {
             type: 'string',
-            description: 'The exact words the learner said, as short as possible.',
+            description:
+              'Only the wrong words, exactly as the learner said them. The shortest quote that shows the mistake, usually 2-6 words. Never a whole sentence.',
           },
-          corrected: { type: 'string', description: 'The corrected form of those words.' },
+          corrected: {
+            type: 'string',
+            description:
+              'The same short span, fixed. Must not repeat words that were already correct in "original".',
+          },
           explanation: {
             type: 'string',
             description: 'One short sentence explaining why, in simple English.',

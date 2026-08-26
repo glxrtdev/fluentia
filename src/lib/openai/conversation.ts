@@ -2,6 +2,7 @@ import 'server-only'
 
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 
+import { narrowCorrection } from '@/lib/corrections/diff'
 import type { CorrectionCategory } from '@/lib/db/schema'
 
 import { AiError, type UserAi } from './client'
@@ -68,16 +69,30 @@ function normalise(raw: RawTurn): TurnResult {
             String(entry.original).trim().toLowerCase() !==
               String(entry.corrected).trim().toLowerCase(),
         )
-        .map((entry) => ({
-          category: CATEGORIES.includes(entry.category as CorrectionCategory)
-            ? (entry.category as CorrectionCategory)
-            : 'grammar',
-          original: String(entry.original).trim().slice(0, 240),
-          corrected: String(entry.corrected).trim().slice(0, 240),
-          explanation: String(entry.explanation ?? '').trim().slice(0, 400),
-          betterSentence: String(entry.better_sentence ?? '').trim().slice(0, 400) || null,
-          severity: Math.min(3, Math.max(1, Number(entry.severity) || 2)),
-        }))
+        .map((entry) => {
+          /*
+           * Asking for the shortest quote is not enough on its own — a clause
+           * rewritten for naturalness comes back as the whole sentence twice
+           * over. Trimming the words both sides share leaves the part that is
+           * genuinely wrong, which is what gets underlined in the transcript
+           * and counted in the mistakes ledger.
+           */
+          const quote = narrowCorrection(
+            String(entry.original).trim().slice(0, 240),
+            String(entry.corrected).trim().slice(0, 240),
+          )
+
+          return {
+            category: CATEGORIES.includes(entry.category as CorrectionCategory)
+              ? (entry.category as CorrectionCategory)
+              : 'grammar',
+            original: quote.original,
+            corrected: quote.corrected,
+            explanation: String(entry.explanation ?? '').trim().slice(0, 400),
+            betterSentence: String(entry.better_sentence ?? '').trim().slice(0, 400) || null,
+            severity: Math.min(3, Math.max(1, Number(entry.severity) || 2)),
+          }
+        })
     : []
 
   const signal = raw.level_signal

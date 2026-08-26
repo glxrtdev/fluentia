@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { Lightbulb, Sparkles } from 'lucide-react'
 
+import { diffCorrection } from '@/lib/corrections/diff'
 import { CATEGORY_LABELS, cn } from '@/lib/utils'
 
 export type LiveCorrection = {
@@ -35,6 +36,8 @@ export function CorrectionCard({
   active?: boolean
   onSelect?: (id: string) => void
 }) {
+  const diff = diffCorrection(correction.original, correction.corrected)
+
   return (
     <article
       id={`correction-${correction.id}`}
@@ -61,13 +64,33 @@ export function CorrectionCard({
         )}
       </div>
 
+      {/*
+        Only the words that actually changed are struck through or highlighted.
+        Striking a whole clause to fix three words of it buries the lesson.
+      */}
       <p className="text-[0.9375rem] leading-relaxed">
-        <span className="text-muted line-through decoration-rose/50 decoration-2">
-          {correction.original}
+        <span className="text-muted">
+          {diff.original.map((piece, index) =>
+            piece.changed ? (
+              <span key={index} className="line-through decoration-rose/60 decoration-2">
+                {piece.text}
+              </span>
+            ) : (
+              <span key={index}>{piece.text}</span>
+            ),
+          )}
         </span>
         <span className="mx-2 text-faint">→</span>
-        <span className="font-semibold text-brand-600 dark:text-brand-400">
-          {correction.corrected}
+        <span className="text-muted">
+          {diff.corrected.map((piece, index) =>
+            piece.changed ? (
+              <span key={index} className="font-semibold text-brand-600 dark:text-brand-400">
+                {piece.text}
+              </span>
+            ) : (
+              <span key={index}>{piece.text}</span>
+            ),
+          )}
         </span>
       </p>
 

@@ -45,9 +45,11 @@ const TURN = {
       severity: 3,
     },
     {
-      category: 'grammar',
-      original: 'make a presentation',
-      corrected: 'made a presentation',
+      // The failure this guards against: the model quotes the entire sentence
+      // on both sides to change two words of it.
+      category: 'naturalness',
+      original: 'Yesterday I go to the university and make a presentation about my job',
+      corrected: 'Yesterday I went to the university and gave a presentation about my job',
       explanation: 'Keep the whole sentence in the past.',
       better_sentence: '',
       severity: 2,
@@ -238,6 +240,18 @@ async function main() {
 
   const storedCorrections = await sql`select * from corrections where conversation_id = ${conversationId}`
   record('corrections were stored', storedCorrections.length === 2)
+
+  const rewrite = storedCorrections.find((c) => c.category === 'naturalness')
+  record(
+    'a whole-sentence rewrite is stored as only the words that changed',
+    Boolean(rewrite) && rewrite.original.length < 40 && rewrite.corrected.length < 40,
+    rewrite ? `"${rewrite.original}" → "${rewrite.corrected}"` : 'not stored',
+  )
+  record(
+    'the narrowed quote is still findable in what the learner said',
+    Boolean(rewrite) && TRANSCRIPT.includes(rewrite.original),
+    rewrite ? rewrite.original : '',
+  )
   record(
     'corrections are scoped to the owner',
     storedCorrections.every((row) => row.user_id === userId),
