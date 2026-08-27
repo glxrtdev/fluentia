@@ -104,7 +104,7 @@ async function seed() {
  * One finished session at a chosen score, through the real end-of-session
  * route. Five user turns, so it clears the evidence bar.
  */
-async function runSession(score) {
+async function runSession(score, durationSeconds = 420) {
   const conversationId = randomUUID()
   await sql`
     insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status)
@@ -122,7 +122,7 @@ async function runSession(score) {
   const response = await fetch(`${base}/api/conversations/${conversationId}/end`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', cookie: `fluentia_session=${token}` },
-    body: JSON.stringify({ durationSeconds: 420, day: '2026-08-27', tzOffsetMinutes: 180 }),
+    body: JSON.stringify({ durationSeconds, day: '2026-08-27', tzOffsetMinutes: 180 }),
   })
   if (!response.ok) throw new Error(`end returned ${response.status}: ${await response.text()}`)
 
@@ -245,6 +245,28 @@ async function main() {
     'and it leaves the consistency run untouched',
     after.consistency_streak === streakBefore,
     `${streakBefore} → ${after.consistency_streak}`,
+  )
+
+
+  /* ------------------------- a session left open all afternoon still closes */
+
+  /*
+   * 242:35. A conversation open past the four-hour ceiling used to answer
+   * "Duração inválida" and refuse to close, trapping the learner in a session
+   * they could not end. The duration is bookkeeping; ending is the point.
+   */
+  const longOne = await runSession(55, 14_555)
+  record(
+    'a session past the four-hour ceiling still closes',
+    Boolean(longOne.report),
+    `report ${longOne.report ? 'written' : 'missing'}`,
+  )
+  const [longConversation] = await sql`
+    select duration_seconds from conversations where id = ${longOne.report.conversation_id}`
+  record(
+    'and its duration is clamped rather than refused',
+    longConversation.duration_seconds === 4 * 3600,
+    `duration_seconds = ${longConversation.duration_seconds}`,
   )
 
   console.log(failures === 0 ? '\nAll checks passed.' : `\n${failures} check(s) failed.`)

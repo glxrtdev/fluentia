@@ -1,197 +1,370 @@
 # Fluentia
 
-A voice-first English tutor. You talk out loud, it listens, answers in voice, and writes the
-corrections that matter beside you — without ever interrupting the conversation to read them.
+Uma professora de idiomas por voz. Você fala em voz alta, ela escuta, responde falando e escreve
+ao lado as correções que importam — sem nunca interromper a conversa para lê-las.
 
-Fluentia runs on **your own OpenAI key**. There are no credits, no subscription and no shared key:
-transcription, replies and speech are billed straight to your account.
+**Dez idiomas**, cada um no seu próprio espaço: inglês, espanhol, francês, italiano, alemão,
+português, japonês, coreano, chinês e russo.
+
+**→ [fluentia-smoky.vercel.app](https://fluentia-smoky.vercel.app)**
+
+A Fluentia roda com a **sua própria chave da OpenAI**. Não há créditos, assinatura nem chave
+compartilhada: transcrição, respostas e fala são cobradas direto na sua conta.
 
 ---
 
-## The loop
+## Sumário
+
+- [Como pegar sua chave da OpenAI](#como-pegar-sua-chave-da-openai)
+- [O ciclo](#o-ciclo)
+- [Espaços de idioma](#espaços-de-idioma)
+- [Níveis, progresso e XP](#níveis-progresso-e-xp)
+- [Rodando localmente](#rodando-localmente)
+- [Variáveis de ambiente](#variáveis-de-ambiente)
+- [Scripts](#scripts)
+- [Modelo de dados](#modelo-de-dados)
+- [Segurança](#segurança)
+- [Estrutura](#estrutura)
+- [Limites conhecidos](#limites-conhecidos)
+
+---
+
+## Como pegar sua chave da OpenAI
+
+A Fluentia nunca fala pela conta de outra pessoa. Você cola sua chave uma vez, ela é criptografada
+no banco, e todo uso é faturado na sua conta — o que também significa que você vê e controla o
+custo.
+
+### Passo a passo
+
+1. **Crie uma conta** em [platform.openai.com](https://platform.openai.com). É a plataforma de
+   desenvolvedores, diferente do ChatGPT — e uma assinatura do ChatGPT Plus **não** dá acesso à API.
+
+2. **Adicione crédito.** Vá em **Settings → Billing** e coloque um valor inicial. A API é pré-paga:
+   sem crédito, qualquer chamada volta com erro de cota, mesmo com a chave correta. US$ 5 já dá
+   para bastante conversa.
+
+3. **Crie a chave** em **[platform.openai.com/api-keys](https://platform.openai.com/api-keys)** →
+   **Create new secret key**. Dê um nome que você reconheça depois (ex.: `fluentia`).
+
+4. **Copie na hora.** A chave começa com `sk-` e só aparece **uma vez**. Se fechar o diálogo sem
+   copiar, não dá para recuperar — só criar outra.
+
+5. **Cole na Fluentia** em **Configurações → Configuração de IA**. Ao salvar, a Fluentia faz uma
+   chamada real de verificação e te diz na hora se a chave funciona.
+
+### Quanto custa
+
+Uma conversa de 10 minutos gasta poucos centavos de dólar: uma transcrição por fala sua, uma
+resposta de texto, e um trecho de áudio por fala do professor. Você pode trocar os modelos em
+**Configurações → Modelos e voz** se quiser algo mais barato ou mais capaz.
+
+Vale colocar um **limite de gasto** em **Settings → Limits** na OpenAI. É a proteção que independe
+do app.
+
+### Se algo der errado
+
+| Mensagem | O que é |
+| --- | --- |
+| `401` / chave recusada | A chave foi digitada errada, revogada, ou é de outra organização |
+| `429` / cota excedida | A chave está certa, mas a conta está sem crédito |
+| `400` sem modelo | O modelo escolhido não existe ou sua conta não tem acesso a ele |
+
+> **Nunca** coloque a chave numa variável com prefixo `NEXT_PUBLIC_`. Esse prefixo publica o valor
+> no navegador. A Fluentia guarda a chave criptografada e só a descriptografa dentro da requisição
+> de servidor que chama a OpenAI.
+
+---
+
+## O ciclo
 
 ```
    ┌──────────┐   MediaRecorder    ┌───────────────────────────────┐
-   │  learner │ ─────────────────▶ │ POST /api/conversations/:id/  │
-   │  speaks  │      webm/opus     │              turn             │
+   │  você    │ ─────────────────▶ │ POST /api/conversations/:id/  │
+   │  fala    │      webm/opus     │              turn             │
    └──────────┘                    │                               │
-         ▲                         │  1. speech → text  (STT)      │
-         │                         │  2. text + profile + history  │
-         │                         │     → reply + corrections     │
-         │                         │        (one JSON-schema call) │
-         │                         │  3. persist turn, corrections │
-         │                         │     and the mistake ledger    │
+         ▲                         │  1. fala → texto  (STT)       │
+         │                         │  2. texto + perfil + histórico│
+         │                         │     → resposta + correções    │
+         │                         │        (uma chamada JSON)     │
+         │                         │  3. grava a fala, as correções│
+         │                         │     e o histórico de erros    │
          │                         └───────────────┬───────────────┘
          │                                         │
          │        GET /api/speech?messageId=…      ▼
-         └────────────  audio/mpeg stream  ── teacher speaks
+         └────────────  áudio/mpeg em stream ── o professor fala
                                                    │
-                            corrections render in the side panel,
-                            silently, while the teacher keeps talking
+                            as correções aparecem no painel lateral,
+                            em silêncio, enquanto o professor continua
 ```
 
-The reply and its corrections come from a **single** model call with a strict JSON schema, so they
-can never disagree with each other, and the spoken text is prompted to contain no correction
-language at all. Speech is a separate streaming `GET` keyed by message id, which means the browser
-plays it natively as it arrives and a replay costs nothing.
+A resposta e as correções vêm de **uma única** chamada com JSON Schema estrito, então nunca podem
+se contradizer, e o texto falado é instruído a não conter nenhuma linguagem de correção. A fala é um
+`GET` separado por id da mensagem, o que deixa o navegador tocar nativamente conforme chega e torna
+uma repetição gratuita.
 
-When the session ends, the transcript is scored, the report is stored, the learning profile is
-updated (CEFR estimate, strengths, weak spots, level nudge) and XP, streak and achievements are
-recalculated from real rows.
+Quando a sessão termina, a transcrição é avaliada, o relatório é gravado, o perfil de idioma é
+atualizado e XP, sequência e conquistas são recalculados de linhas reais do banco.
 
----
+### O que fica em qual idioma
 
-## Stack and why
-
-| Concern | Choice | Reason |
-| --- | --- | --- |
-| App | Next.js (App Router) + TypeScript | server routes live beside the UI, so the API key never reaches the client |
-| UI | Tailwind CSS v4, design tokens in `globals.css`, Lucide icons | one small design system, light and dark from the same tokens |
-| Database | **Supabase Postgres** + Drizzle ORM | managed, works on serverless, and the connection string is the only credential the app needs |
-| Auth | own session cookies (`scrypt` + hashed opaque tokens) | no SaaS dependency, 30-day persistent sessions, no JWT footguns |
-| API key | AES-256-GCM at rest, decrypted only inside the request that calls OpenAI | a database dump alone reveals nothing |
-| Speech | `gpt-4o-transcribe` → `gpt-4o` → `gpt-4o-mini-tts` (all overridable) | text arrives first so corrections paint immediately; audio streams after |
-| Dictionary | [dictionaryapi.dev](https://dictionaryapi.dev) | real definitions instead of a model inventing them |
+O painel é **sempre em português** — abas, botões, títulos, descrições. O que aparece no idioma que
+você pratica é o que **é** o aprendizado: a fala do professor, a transcrição, seus erros, o
+vocabulário salvo.
 
 ---
 
-## Running it
+## Espaços de idioma
+
+Cada idioma é um espaço independente, até **3 por conta**. Trocar de espaço troca tudo que é do
+idioma e nada que é seu:
+
+| Por espaço | Da conta |
+| --- | --- |
+| Nível oficial e progresso | Sequência de dias |
+| Erros e vocabulário | XP |
+| Sessões e relatórios | Conquistas |
+| Metas semanais | Nome, senha, chave da OpenAI |
+
+Praticar japonês numa terça não quebra a sequência construída em inglês — a sequência é sua, não do
+idioma.
+
+Cada espaço adapta o professor ao idioma: o prompt fala na língua e na escrita corretas (japonês em
+kana/kanji, não romaji), a transcrição recebe o código ISO certo, e o dicionário muda de fonte.
+
+---
+
+## Níveis, progresso e XP
+
+Três coisas separadas de propósito. **XP não compra nível.**
+
+### A nota de cada sessão define a faixa
+
+| Nota | Faixa |
+| ---: | :--- |
+| 0–29 | A1 |
+| 30–44 | A2 |
+| 45–59 | B1 |
+| 60–74 | B2 |
+| 75–89 | C1 |
+| 90–100 | C2 |
+
+A faixa é **derivada** da nota de fala, não perguntada ao modelo. Antes eram duas respostas
+separadas e nada as amarrava: uma sessão podia tirar 42 e ser rotulada B2.
+
+### O progresso é a média das últimas 5 sessões
+
+```
+(média − piso da faixa) / (teto − piso) × 100
+```
+
+B1 vai de 45 a 59. Média de 55 → `(55 − 45) / (59 − 45) = 71%`.
+
+- Com menos de 5 sessões, usa as que existem — sem inventar valores.
+- Sempre entre 0% e 100%.
+- Só contam sessões com **pelo menos 4 falas suas**: abaixo disso a nota descreve mais a duração da
+  conversa do que você.
+- A janela é contada a partir da última promoção, então um nível novo começa em 0%.
+
+### O nível só sobe com consistência
+
+Chegar a 100% **não** promove. Aparece um objetivo: **5 sessões seguidas** com nota dentro da faixa
+seguinte.
+
+```
+B1 — 100%      B2 bloqueado
+63 → 1/5   66 → 2/5   61 → 3/5   65 → 4/5   68 → 5/5   🎉 B2 desbloqueado
+```
+
+Uma nota fora da faixa zera a sequência — mas **não** derruba a barra abaixo de 100%. Você já provou
+que atingiu o teto do nível atual.
+
+A promoção acontece **no encerramento da sessão que a conquistou**, e o resumo daquela sessão
+mostra a conquista. Não é preciso abrir outra aba para o nível atualizar.
+
+### XP é só gamificação
+
+XP vem de completar sessões, manter a sequência, aprender palavras, corrigir erros e bater metas.
+Duas pessoas podem ter XP muito diferente e o mesmo nível — e vice-versa.
+
+---
+
+## Rodando localmente
+
+Requer **Node 22.11+** e um projeto Postgres (o Supabase serve bem).
 
 ```bash
 npm install
-npm run setup        # writes .env.local with a fresh ENCRYPTION_KEY
-# paste your Supabase connection string into DATABASE_URL in .env.local
-npm run dev          # applies migrations, then starts the app
+npm run setup        # cria .env.local com uma ENCRYPTION_KEY nova
+# cole sua connection string do Supabase em DATABASE_URL no .env.local
+npm run dev          # aplica as migrações e sobe o app
 ```
 
-Then:
+Depois:
 
-1. open <http://localhost:3000> and create an account;
-2. finish the four onboarding steps;
-3. go to **Settings → AI configuration** and paste your OpenAI key (it is verified live);
-4. open **Speaking**, pick a topic, and talk.
+1. abra <http://localhost:3000> e crie uma conta;
+2. escolha o idioma e conclua o onboarding;
+3. vá em **Configurações → Configuração de IA** e cole sua chave da OpenAI;
+4. abra **Conversar**, escolha um tema e fale.
 
-`npm run dev` runs `setup` and `db:migrate` first, so the schema is applied and the achievement
-catalogue is seeded before the server starts.
+`npm run dev` roda `setup` e `db:migrate` antes, então o schema está aplicado e o catálogo de
+conquistas semeado quando o servidor sobe.
 
-### Environment
+---
 
-`npm run setup` creates `.env.local` with a fresh key. The database URL is a credential, so it is never invented for you:
+## Variáveis de ambiente
 
-| Variable | Meaning |
+`npm run setup` cria o `.env.local` com uma chave nova. A URL do banco é uma credencial, então nunca
+é inventada para você:
+
+| Variável | Significado |
 | --- | --- |
-| `DATABASE_URL` | Supabase connection string (Project Settings → Database → Connection string → URI) |
-| `ENCRYPTION_KEY` | 32-byte hex key that encrypts each user's OpenAI key |
-| `OPENAI_CHAT_MODEL` / `OPENAI_STT_MODEL` / `OPENAI_TTS_MODEL` | optional defaults, overridable per user in Settings |
-| `OPENAI_BASE_URL` | optional; point at an OpenAI-compatible gateway (also used by the voice-loop test) |
+| `DATABASE_URL` | Connection string do Postgres (Supabase → Project Settings → Database → Connection string → URI) |
+| `ENCRYPTION_KEY` | Chave hex de 32 bytes que criptografa a chave da OpenAI de cada usuário |
+| `OPENAI_CHAT_MODEL` / `OPENAI_STT_MODEL` / `OPENAI_TTS_MODEL` | Padrões opcionais, substituíveis por usuário em Configurações |
+| `OPENAI_BASE_URL` | Opcional; aponta para um gateway compatível com a OpenAI (usado também pelos testes) |
 
-> `ENCRYPTION_KEY` is the only secret that matters: rotate it and every stored API key becomes
-> unreadable, so users would need to paste theirs again.
+> **`ENCRYPTION_KEY` é o segredo que mais importa.** Se você trocá-la, toda chave da OpenAI já
+> guardada vira ilegível e os usuários precisam colar a delas de novo. Ao publicar na Vercel, copie
+> a mesma chave do `.env.local` — não gere outra.
 
-> Use the **Transaction pooler** URI (port 6543) for serverless deployments; the app already sets
-> `prepare: false`, which is what that pooler requires. A long-running server can use the Session
-> pooler or the direct connection instead.
+> Use o URI do **Transaction pooler** (porta 6543) em deploy serverless; o app já configura
+> `prepare: false`, que é o que esse pooler exige. Um servidor de longa duração pode usar o Session
+> pooler ou a conexão direta.
 
-> The connection string is a full-access database credential: it belongs in server-side environment
-> variables only. Supabase Row Level Security is **not** what isolates users here — the app does,
-> by filtering every query on the session user id.
+> A connection string dá acesso total ao banco: ela pertence só a variáveis de servidor. O
+> isolamento entre usuários **não** vem do Row Level Security do Supabase — vem do app, que filtra
+> toda consulta pelo id da sessão.
 
-### Scripts
+### Deploy na Vercel
+
+Defina `DATABASE_URL` e `ENCRYPTION_KEY` nas variáveis de ambiente do projeto. As migrações rodam no
+`prestart`. Vale conferir se a região das funções fica perto da região do banco: com elas em
+continentes diferentes, cada ida ao banco custa ~150 ms em vez de ~30 ms, e o painel faz várias.
+
+---
+
+## Scripts
 
 ```bash
-npm run dev          # migrate + dev server
-npm run build        # migrate + production build (type-checked)
-npm start            # migrate + production server
+npm run dev          # migra + servidor de desenvolvimento
+npm run build        # build de produção (com typecheck)
+npm start            # migra + servidor de produção
 npm run typecheck
-npm test             # migration shape + date/streak unit tests (no database needed)
-npm run test:smoke http://localhost:3000    # pages, auth guards, per-user isolation
-npm run test:voice  http://localhost:3000 4319   # the full voice loop against a mock OpenAI
-npm run icons       # regenerate favicon, app icon and social card from the logo
-npm run db:generate # new migration after editing the schema
-npm run db:studio   # browse the database
+npm test             # unitários puros, sem banco
+npm run test:smoke      http://localhost:3000        # páginas, guardas de auth, isolamento
+npm run test:voice      http://localhost:3000 4319   # o ciclo de voz inteiro contra um mock
+npm run test:levels     http://localhost:3000        # promoção de nível ponta a ponta
+npm run test:workspaces http://localhost:3000        # isolamento entre idiomas, em navegador
+npm run test:responsive http://localhost:3000        # 6 larguras, sem scroll horizontal
+npm run icons        # regenera favicon, ícone do app e card social a partir da logo
+npm run db:generate  # nova migração depois de editar o schema
+npm run db:studio    # navega no banco
 ```
 
-`test:voice` needs the app started with `OPENAI_BASE_URL=http://127.0.0.1:4319/v1`. It stands up an
-OpenAI-compatible test double and drives the whole loop — audio upload, transcript, reply,
-corrections, mistake aggregation, speech streaming, report, XP, streak, achievements — without
-spending a cent.
+`test:voice` e `test:levels` precisam do app iniciado com
+`OPENAI_BASE_URL=http://127.0.0.1:4319/v1`. Eles sobem um dublê compatível com a OpenAI e percorrem
+o ciclo inteiro — upload de áudio, transcrição, resposta, correções, agregação de erros, streaming
+de fala, relatório, XP, sequência, conquistas e promoção de nível — sem gastar um centavo.
+
+> O Next 16 recusa um segundo servidor de desenvolvimento na mesma pasta. Para rodar os testes que
+> precisam do mock, use o build de produção numa porta separada:
+> `npm run build && OPENAI_BASE_URL=http://127.0.0.1:4319/v1 PORT=3100 npm start`.
 
 ---
 
-## Data model
+## Modelo de dados
 
-Everything hangs off `users` and every query is filtered by the session's user id.
+Tudo pende de `users`, e toda consulta é filtrada pelo id da sessão. O que descreve o aprendizado
+pende de `workspaces`.
 
 ```
-users ──┬── profiles              level, CEFR estimate, XP, streak, strengths, weaknesses
-        ├── user_settings         encrypted OpenAI key, model + voice preferences, theme
-        ├── sessions              hashed session tokens
-        ├── conversations ──┬── conversation_messages    the transcript, ordered by seq
-        │                   ├── corrections              what the feedback panel showed
-        │                   └── session_reports          scores, mistakes, words, advice
-        ├── mistakes ─────── mistake_occurrences         recurring patterns, with counts
-        ├── vocabulary                                   learning / review / learned
-        ├── goals                                        weekly targets
-        ├── streaks                                      one row per practised day
-        ├── practice_sessions                            every XP-earning activity
-        └── user_achievements ── achievements            catalogue seeded from code
+users ──┬── profiles              XP, sequência, idioma nativo, tempo total
+        ├── user_settings         chave criptografada, modelos, voz, tema, espaço ativo
+        ├── sessions              tokens de sessão com hash
+        ├── user_achievements ── achievements     catálogo semeado do código
+        ├── streaks                               uma linha por dia praticado
+        └── workspaces ──┬── conversations ──┬── conversation_messages   a transcrição
+                         │                   ├── corrections             o que o painel mostrou
+                         │                   └── session_reports         notas, promoção, conselhos
+                         ├── mistakes ─────── mistake_occurrences        padrões, com contagem
+                         ├── vocabulary                                  aprendendo/revisar/aprendida
+                         └── goals                                       metas semanais
 ```
 
-`streaks` is the source of truth for the streak; `profiles` keeps a denormalised copy so the
-dashboard is a single read. Weekly goal progress is always computed from real rows, never stored.
+`streaks` é a fonte da verdade da sequência; `profiles` guarda uma cópia desnormalizada para o
+painel ser uma leitura só. O progresso das metas é sempre calculado de linhas reais, nunca guardado.
+
+O estado de nível vive em `workspaces`: `official_cefr`, `level_progress`, `consistency_streak` e
+`level_achieved_at`. Cada relatório guarda se contou para o nível (`counts_towards_level`) e se
+promoveu (`promoted_to`), então a promoção é um fato registrado, não um cálculo de tela.
 
 ---
 
-## Security notes
+## Segurança
 
-- **API keys** are encrypted with AES-256-GCM (`src/lib/crypto.ts`) and only decrypted inside
-  `getUserAi()`. No route ever returns a key, not even masked beyond its last four characters.
-- **Sessions** are opaque 32-byte tokens in `httpOnly`, `sameSite=lax` cookies; only their SHA-256
-  is stored, so the database cannot be used to impersonate anyone.
-- **Passwords** use `scrypt` with a per-password salt and constant-time comparison.
-- **Isolation** — every conversation, message, correction, mistake and word is fetched with the
-  user id in the `WHERE` clause. `npm run test:smoke` asserts that a second account gets `404` on
-  all of them, including the audio endpoint.
-- **Input** is validated with Zod at every boundary (`src/lib/validation.ts`), including audio size
-  and MIME type on upload.
-- **Rate limits** guard sign-in, session starts, turns, speech and dictionary lookups.
-- **Cascades** — deleting a user removes every row they own, enforced by foreign keys rather than
-  application code.
-- **Audio** is streamed to OpenAI and never written to disk; Fluentia keeps the text.
+- **Chaves da API** são criptografadas com AES-256-GCM (`src/lib/crypto.ts`) e só descriptografadas
+  dentro de `getUserAi()`. Nenhuma rota devolve uma chave, nem mascarada além dos 4 últimos dígitos.
+- **Sessões** são tokens opacos de 32 bytes em cookies `httpOnly`, `sameSite=lax`; só o SHA-256 é
+  guardado, então o banco não serve para se passar por ninguém.
+- **Senhas** usam `scrypt` com sal por senha e comparação em tempo constante.
+- **Isolamento** — cada conversa, mensagem, correção, erro e palavra é buscada com o id do usuário
+  no `WHERE`, e o conteúdo de aprendizado também pelo espaço. `test:smoke` verifica que outra conta
+  recebe `404` em todos, inclusive no endpoint de áudio; `test:workspaces` verifica que dois idiomas
+  na mesma conta não enxergam um ao outro.
+- **Entradas** são validadas com Zod em toda fronteira (`src/lib/validation.ts`), incluindo tamanho
+  e tipo MIME do áudio enviado.
+- **Limites de taxa** protegem login, início de sessão, falas, fala sintetizada e buscas no
+  dicionário.
+- **Cascatas** — apagar um usuário remove toda linha dele, por chave estrangeira e não por código.
+- **Áudio** é enviado à OpenAI e nunca escrito em disco; a Fluentia guarda o texto.
 
 ---
 
-## Layout
+## Estrutura
 
 ```
 src/
   app/
-    (auth)/          login, signup
-    (app)/           the signed-in shell: dashboard, speak, sessions, mistakes,
-                     vocabulary, profile, goals, achievements, settings
-    onboarding/      four-step first run
+    (auth)/          login, cadastro
+    (app)/           o app logado: painel, conversar, sessões, erros, vocabulário,
+                     perfil, metas, conquistas, configurações, espaços
+    onboarding/      primeiro acesso, começando pela escolha do idioma
     api/             conversations/:id/turn · conversations/:id/end · speech · dictionary · translate
-  components/        brand, shell, conversation, settings, vocabulary, ui primitives
+  components/        marca, shell, conversa, configurações, vocabulário, primitivos de UI
   lib/
-    auth/            session issuing, guards, sign-in/up actions
-    db/              Drizzle schema, connection, achievement seed
-    domain/          conversation, mistakes, report, gamification, recommendations, topics
-    openai/          client, prompts + JSON schemas, turn, speech
-    actions/         server actions grouped by feature
-    hooks/           use-recorder (voice activity detection)
-tests/               schema, date/streak units, smoke, voice loop
+    auth/            emissão de sessão, guardas, ações de login/cadastro
+    db/              schema Drizzle, conexão, semente de conquistas
+    domain/          conversa, erros, relatório, gamificação, recomendações, temas,
+                     cefr, progression (as regras de nível), workspace
+    dictionary/      dictionaryapi.dev + Wiktionary, normalização testável
+    openai/          cliente, prompts + JSON schemas, turno, fala
+    languages.ts     os 10 idiomas: código STT, notas de ensino, dicionário, amostra de voz
+    actions/         server actions agrupadas por funcionalidade
+    hooks/           use-recorder (detecção de atividade de voz)
+tests/               unitários puros + smoke, voz, níveis, espaços, responsividade
 ```
 
 ---
 
-## Known limits
+## Limites conhecidos
 
-- **Pronunciation** is scored only when the transcript actually shows evidence; otherwise the report
-  shows a dash rather than inventing a number. Real pronunciation assessment needs the audio itself.
-- **Turn taking** is push-to-talk with silence detection, not a full duplex realtime stream. It is
-  simpler, cheaper and works on every browser that has `MediaRecorder`; the Realtime API would be
-  the next step for barge-in.
-- **Rate limiting** is in-process, which is correct for a single instance. Multiple nodes would
-  need a shared store.
-- **Translations** are on demand only. Every translation is an OpenAI call billed to the learner, so
-  Fluentia never translates a word until the learner presses the button.
+- **Pronúncia** só é avaliada quando a transcrição mostra evidência; caso contrário o relatório
+  mostra um traço em vez de inventar um número. Avaliação real de pronúncia precisa do áudio.
+- **O dicionário** usa [dictionaryapi.dev](https://dictionaryapi.dev) para inglês, que traz fonética
+  e gravações humanas mas cai com frequência, e o [Wiktionary](https://en.wiktionary.org) para todos
+  os idiomas — inclusive como reserva do inglês quando o primeiro falha. As definições do Wiktionary
+  vêm **em inglês**: só a versão inglesa implementa esse endpoint. Salvar a palavra e tocar o botão
+  de traduzir resolve, com uma chamada à sua chave.
+- **A vez de falar** é apertar-para-falar com detecção de silêncio, não um stream full duplex. É
+  mais simples, mais barato e funciona em todo navegador com `MediaRecorder`; a Realtime API seria o
+  próximo passo para interrupção.
+- **Sem limite de tempo por fala.** O único teto é o de 25 MB por upload da OpenAI, contado em bytes
+  reais conforme gravam — mais de meia hora de fala numa vez só. Falas longas custam e demoram
+  proporcionalmente mais.
+- **Limite de taxa** é em processo, o que é correto para uma instância. Vários nós precisariam de um
+  armazenamento compartilhado.
+- **Traduções** são sob demanda. Cada tradução é uma chamada cobrada na conta do aprendiz, então a
+  Fluentia nunca traduz uma palavra antes de você pedir.
+- **Sem recuperação de senha por e-mail.** A Fluentia não envia e-mail; a recuperação roda na máquina
+  que hospeda o banco, com `npm run set-password -- voce@exemplo.com`.

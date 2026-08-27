@@ -21,6 +21,7 @@ import { Transcript } from '@/components/conversation/transcript'
 import { Button } from '@/components/ui/button'
 import { discardConversation } from '@/lib/actions/conversation'
 import { useRecorder } from '@/lib/hooks/use-recorder'
+import { MAX_SESSION_SECONDS } from '@/lib/validation'
 import { cn, formatClock, LEVEL_LABELS } from '@/lib/utils'
 
 export type RoomMessage = { id: string; role: 'user' | 'assistant'; content: string }
@@ -87,7 +88,10 @@ export function ConversationRoom({
   useEffect(() => {
     // Time spent reading is not time spent practising, so the clock stops too.
     if (phase === 'ready' || paused) return
-    const timer = setInterval(() => setSeconds((value) => value + 1), 1000)
+    const timer = setInterval(
+      () => setSeconds((value) => Math.min(value + 1, MAX_SESSION_SECONDS)),
+      1000,
+    )
     return () => clearInterval(timer)
   }, [phase, paused])
 

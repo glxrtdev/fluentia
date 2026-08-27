@@ -101,8 +101,20 @@ export const startConversationSchema = z.object({
   level: levelSchema.optional(),
 })
 
+/**
+ * A session left open for hours reports hours. That is an accounting oddity,
+ * not a reason to refuse to close it — rejecting the request trapped the
+ * learner in a conversation they could not end. The duration is clamped, the
+ * session closes, and the report is still written.
+ */
+export const MAX_SESSION_SECONDS = 4 * 3600
+
 export const endConversationSchema = z.object({
-  durationSeconds: z.number().int().min(0).max(4 * 3600),
+  durationSeconds: z
+    .number()
+    .int()
+    .min(0)
+    .transform((value) => Math.min(value, MAX_SESSION_SECONDS)),
 })
 
 export const dictionaryQuerySchema = z
