@@ -167,8 +167,8 @@ async function seed() {
   `
   // Learning belongs to a workspace now; this one practises English.
   await sql`
-    insert into workspaces (id, user_id, language, level, auto_adapt_level, main_goal)
-    values (${workspaceId}, ${userId}, 'en', 'intermediate', true, 'career')
+    insert into workspaces (id, user_id, language, level, official_cefr, auto_adapt_level, main_goal)
+    values (${workspaceId}, ${userId}, 'en', 'intermediate', 'B1', true, 'career')
   `
   await sql`
     insert into user_settings (user_id, active_workspace_id, openai_key_cipher, openai_key_hint, openai_key_status)
@@ -349,10 +349,24 @@ async function main() {
     space.estimated_cefr === 'C1',
     `speaking 78 → ${space.estimated_cefr} (the model said B2 and was ignored)`,
   )
+  /*
+   * One strong session no longer moves anyone. The level used to nudge a step
+   * per report, which meant difficulty drifted on a single result; it now only
+   * moves after a consistency run, so a 78 here leaves the level alone.
+   */
   record(
-    'auto-adapt nudged the level one step',
-    space.level === 'upper-intermediate',
-    `level is ${space.level}`,
+    'a single strong session does not move the level',
+    space.level === 'intermediate' && space.official_cefr === 'B1',
+    `level ${space.level} · official ${space.official_cefr}`,
+  )
+  record(
+    'but it fills the progress bar for the current band',
+    space.level_progress === 100,
+    `level_progress = ${space.level_progress}`,
+  )
+  record(
+    'and starts no run, because 78 is C1 rather than the next band',
+    space.consistency_streak === 0,
   )
   record('strengths were recorded on the workspace', space.strengths.includes('Vocabulary'))
   record('the workspace counted the session', space.sessions_completed === 1)

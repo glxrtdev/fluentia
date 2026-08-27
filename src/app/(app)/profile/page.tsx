@@ -7,6 +7,7 @@ import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { Card, SectionTitle } from '@/components/ui/card'
 import { Badge, Progress, Stat } from '@/components/ui/misc'
 import { getProfile, requireUser, requireWorkspace } from '@/lib/auth/session'
+import { LevelProgress } from '@/components/progress/level-progress'
 import { getLanguage } from '@/lib/languages'
 import { db } from '@/lib/db'
 import { conversations, mistakes, sessionReports } from '@/lib/db/schema'
@@ -57,7 +58,7 @@ export default async function ProfilePage() {
   const trend = [...trendRows].reverse()
 
   const mixTotal = mistakeMix.reduce((total, row) => total + row.total, 0)
-  const cefrIndex = workspace.estimatedCefr ? CEFR_SCALE.indexOf(workspace.estimatedCefr) : -1
+  const cefrIndex = CEFR_SCALE.indexOf(workspace.officialCefr)
 
   const improvement =
     trend.length >= 4
@@ -70,23 +71,27 @@ export default async function ProfilePage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow={`${getLanguage(workspace.language).name.en} profile`}
+        eyebrow={`Perfil de ${getLanguage(workspace.language).name.pt}`}
         title="Como você fala"
         description="Montado inteiramente a partir das suas sessões. O professor lê isto antes de cada conversa."
       />
 
+      <LevelProgress
+        cefr={workspace.officialCefr}
+        progress={workspace.levelProgress}
+        streak={workspace.consistencyStreak}
+        className="mt-8"
+      />
+
       {/* Nível */}
-      <Card className="mt-8">
+      <Card className="mt-6">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <SectionTitle>Nível</SectionTitle>
-            <p className="display mt-2 text-4xl text-ink">
-              {workspace.estimatedCefr ?? LEVEL_LABELS[workspace.level]}
-            </p>
+            <p className="display mt-2 text-4xl text-ink">{workspace.officialCefr}</p>
             <p className="mt-1.5 text-[0.8125rem] text-muted">
-              {workspace.estimatedCefr
-                ? `Estimado a partir das suas sessões · praticando em ${LEVEL_LABELS[workspace.level]}`
-                : 'Conclua uma sessão e a Fluentia estima seu nível CEFR'}
+              Conquistado pelas suas sessões · praticando em{' '}
+              {LEVEL_LABELS[workspace.level]}
             </p>
           </div>
 
@@ -96,7 +101,7 @@ export default async function ProfilePage() {
               <Badge tone={improvement >= 0 ? 'accent' : 'danger'}>
                 {improvement >= 0 ? <TrendingUp className="size-3" /> : <Minus className="size-3" />}
                 {improvement >= 0 ? '+' : ''}
-                {improvement} on speaking
+                {improvement} em fala
               </Badge>
             )}
           </div>

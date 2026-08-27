@@ -82,7 +82,7 @@ ${focus ? `\n### Recurring mistakes to watch for\n${focus}\n\nWhen it fits the c
 ${ctx.activeVocabulary.length ? `\n### Words the learner is studying\n${ctx.activeVocabulary.slice(0, 20).join(', ')}\nUse a few of them naturally where they fit.` : ''}
 
 ## Written feedback
-The explanations, and only the explanations, are written in English. Everything the learner hears is in ${language.name.en}.
+The explanations, and only the explanations, are written in Brazilian Portuguese — the learner reads them in a Portuguese interface. Everything the learner hears is in ${language.name.en}.
 
 ## Level signal
 Report whether your last turn seemed too easy, about right, or too hard for this learner, based on their fluency, vocabulary range and hesitation.`
@@ -131,7 +131,7 @@ export const TURN_SCHEMA = {
           explanation: {
             type: 'string',
             description:
-              'One short sentence explaining why, written in simple English so the learner can read it beside the conversation.',
+              'One short sentence explaining why, in simple Brazilian Portuguese, so the learner can read it beside the conversation.',
           },
           better_sentence: {
             type: 'string',
@@ -267,6 +267,6 @@ Rules:
 - A short session with little speech gets modest confidence: keep scores near the declared level rather than inventing extremes.
 - Pronunciation cannot be judged from text. Return null unless the transcript itself shows clear evidence (for example the learner mentioning a sound they struggled with, or a mis-transcription that reveals a pronunciation problem).
 - "new_words" and "expressions" must actually appear in the conversation.
-- Write the summary directly to the learner, in the second person, in Portuguese — it is read, not heard.
+- Write the summary, strengths and weaknesses directly to the learner, in the second person, in Brazilian Portuguese — they are read, not heard.
 - Do not guess a CEFR level. Fluentia derives it from the speaking score you give, so the two can never disagree.`
 }

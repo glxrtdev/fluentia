@@ -15,6 +15,15 @@ import {
 
 export type Workspace = typeof workspaces.$inferSelect
 
+/** The self-assessment at onboarding, read as a starting band. */
+const LEVEL_TO_CEFR: Record<string, string> = {
+  beginner: 'A1',
+  elementary: 'A2',
+  intermediate: 'B1',
+  'upper-intermediate': 'B2',
+  advanced: 'C1',
+}
+
 export class WorkspaceError extends Error {}
 
 /** Every workspace on the account, oldest first so the order never jumps. */
@@ -73,9 +82,20 @@ export async function createWorkspace(
     throw new WorkspaceError(`Você já tem um espaço de ${getLanguage(language).name.pt}.`)
   }
 
+  /*
+   * The declared level is the starting official level. Without this a learner
+   * who called themselves intermediate would begin at A1 and have the teacher
+   * drop to beginner after their first session — a demotion they never earned
+   * and never asked for.
+   */
   const [created] = await db
     .insert(workspaces)
-    .values({ userId, language, ...seed })
+    .values({
+      userId,
+      language,
+      ...seed,
+      officialCefr: LEVEL_TO_CEFR[seed.level ?? 'intermediate'] ?? 'B1',
+    })
     .returning()
 
   if (!created) throw new WorkspaceError('Não foi possível criar o espaço.')

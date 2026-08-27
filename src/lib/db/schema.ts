@@ -115,7 +115,24 @@ export const workspaces = pgTable(
     language: text('language').notNull(), // LanguageCode from lib/languages
     level: text('level').notNull().default('intermediate').$type<Level>(),
     autoAdaptLevel: boolean('auto_adapt_level').notNull().default(true),
-    estimatedCefr: text('estimated_cefr'), // A1..C2, derived from session reports
+    /*
+     * The level the learner actually holds. It moves only through the
+     * consistency run in `domain/progression`, never through XP or session
+     * count — someone can be rich in XP and still be A2.
+     */
+    officialCefr: text('official_cefr').notNull().default('A1'),
+    /** 0-100 towards the top of the current band. A ratchet at 100. */
+    levelProgress: integer('level_progress').notNull().default(0),
+    /** Consecutive sessions already scored inside the next band. */
+    consistencyStreak: integer('consistency_streak').notNull().default(0),
+    /**
+     * When the current level was reached. The progress window only looks at
+     * sessions after this, so a new level starts from zero rather than
+     * inheriting the average that earned it.
+     */
+    levelAchievedAt: stamp('level_achieved_at'),
+    /** The band the last session fell into. Informational, not the level. */
+    estimatedCefr: text('estimated_cefr'), // A1..C2, from the last session
     mainGoal: text('main_goal').$type<MainGoal>(),
     dailyMinutesGoal: integer('daily_minutes_goal').notNull().default(20),
     interests: jsonb('interests').$type<string[]>().notNull().default([]),
@@ -266,6 +283,14 @@ export const sessionReports = pgTable(
     fluency: integer('fluency').notNull(),
     pronunciation: integer('pronunciation'), // null when there is not enough signal
     estimatedLevel: text('estimated_level').notNull(),
+    /*
+     * Whether this session counted towards levelling. Stored rather than
+     * re-derived so "the last five valid sessions" stays one indexable query
+     * and the rule that produced it is auditable after the fact.
+     */
+    countsTowardsLevel: boolean('counts_towards_level').notNull().default(false),
+    /** Set when this very session earned a promotion, so the report can say so. */
+    promotedTo: text('promoted_to'),
     summary: text('summary').notNull(),
     mainMistakes: jsonb('main_mistakes')
       .$type<{ label: string; detail: string }[]>()

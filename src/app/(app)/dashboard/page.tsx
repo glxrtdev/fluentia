@@ -104,7 +104,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge tone="accent">{LEVEL_LABELS[workspace.level]}</Badge>
-          {workspace.estimatedCefr && <Badge>CEFR {workspace.estimatedCefr}</Badge>}
+          <Badge>CEFR {workspace.officialCefr}</Badge>
         </div>
       </header>
 

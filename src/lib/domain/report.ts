@@ -1,11 +1,9 @@
 import 'server-only'
 
-import { eq } from 'drizzle-orm'
+import { and, desc, eq, gte } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
 import { conversations, sessionReports, workspaces } from '@/lib/db/schema'
-import type { Level } from '@/lib/db/schema'
-import { LEVELS } from '@/lib/db/schema'
 import { conversationCorrections, conversationTranscript } from '@/lib/domain/conversation'
 import {
   registerPractice,
@@ -15,7 +13,13 @@ import {
 } from '@/lib/domain/gamification'
 import { AiError, type UserAi } from '@/lib/openai/client'
 import { buildReportPrompt, REPORT_SCHEMA } from '@/lib/openai/prompts'
-import { cefrForScore, CEFR_TO_LEVEL } from '@/lib/domain/cefr'
+import { cefrForScore } from '@/lib/domain/cefr'
+import {
+  advance,
+  CEFR_TO_TEACHING_LEVEL,
+  MIN_TURNS_TO_COUNT,
+  PROGRESS_WINDOW,
+} from '@/lib/domain/progression'
 import { clamp } from '@/lib/utils'
 
 type RawReport = Record<string, unknown>
@@ -46,14 +50,6 @@ function pairList<K extends string, V extends string>(
           [valueName]: String(entry[valueName] ?? '').trim().slice(0, 300),
         }) as Record<K | V, string>,
     )
-}
-
-/** Moves a level one step towards `target` — never a jump. */
-function nudgeLevel(current: Level, target: Level): Level {
-  const from = LEVELS.indexOf(current)
-  const to = LEVELS.indexOf(target)
-  if (from === to || to < 0) return current
-  return LEVELS[from + (to > from ? 1 : -1)]
 }
 
 /**
@@ -163,6 +159,42 @@ export async function finishConversation(args: {
    */
   const estimatedCefr = cefrForScore(speaking)
 
+  /*
+   * A short exchange scores something, but that score describes the length of
+   * the conversation more than the learner. Only sessions with real evidence
+   * move the level; the rest still get a report and still earn XP.
+   */
+  const countsTowardsLevel = userTurns.length >= MIN_TURNS_TO_COUNT
+
+  /*
+   * The window is scoped to the current level, not to all time: a promotion
+   * restarts it, which is what makes a fresh band open at 0% instead of
+   * inheriting the average that earned it.
+   */
+  const previous = countsTowardsLevel
+    ? await db
+        .select({ speaking: sessionReports.speaking })
+        .from(sessionReports)
+        .where(
+          and(
+            eq(sessionReports.workspaceId, conversation.workspaceId),
+            eq(sessionReports.countsTowardsLevel, true),
+            gte(sessionReports.createdAt, workspace.levelAchievedAt),
+          ),
+        )
+        .orderBy(desc(sessionReports.createdAt))
+        .limit(PROGRESS_WINDOW - 1)
+    : []
+
+  const state = {
+    cefr: workspace.officialCefr,
+    progress: workspace.levelProgress,
+    streak: workspace.consistencyStreak,
+  }
+  const outcome = countsTowardsLevel
+    ? advance(state, speaking, [speaking, ...previous.map((row) => row.speaking)])
+    : { ...state, sessionCefr: estimatedCefr, promotedTo: null, unlocking: false, target: null }
+
   const [report] = await db
     .insert(sessionReports)
     .values({
@@ -178,6 +210,8 @@ export async function finishConversation(args: {
           ? null
           : score(pronunciationRaw, speaking),
       estimatedLevel: estimatedCefr,
+      countsTowardsLevel: countsTowardsLevel,
+      promotedTo: outcome.promotedTo,
       summary: String(raw.summary ?? '').trim().slice(0, 1200) || 'Sessão concluída.',
       mainMistakes: pairList(raw.main_mistakes, 'label', 'detail', 4),
       newWords: pairList(raw.new_words, 'word', 'meaning', 6),
@@ -198,16 +232,24 @@ export async function finishConversation(args: {
   // The workspace is the memory the next conversation in this language reads from.
   const strengths = stringList(raw.strengths, 3)
   const weaknesses = stringList(raw.weaknesses, 3)
-  const enoughEvidence = userTurns.length >= 4
-  const nextLevel =
-    workspace.autoAdaptLevel && enoughEvidence
-      ? nudgeLevel(workspace.level, CEFR_TO_LEVEL[estimatedCefr] ?? workspace.level)
-      : workspace.level
 
   await db.update(workspaces)
     .set({
       estimatedCefr,
-      level: nextLevel,
+      officialCefr: outcome.cefr,
+      levelProgress: outcome.progress,
+      consistencyStreak: outcome.streak,
+      // Only a promotion restarts the window; otherwise the level is unchanged
+      // and its history should keep accumulating.
+      ...(outcome.promotedTo ? { levelAchievedAt: new Date() } : {}),
+      /*
+       * The teacher speaks at the band the learner actually holds. It used to
+       * drift a step per session on the model's guess, which meant difficulty
+       * moved for reasons the learner had not earned.
+       */
+      level: workspace.autoAdaptLevel
+        ? CEFR_TO_TEACHING_LEVEL[outcome.cefr as keyof typeof CEFR_TO_TEACHING_LEVEL]
+        : workspace.level,
       strengths: strengths.length ? strengths : workspace.strengths,
       weaknesses: weaknesses.length ? weaknesses : workspace.weaknesses,
       sessionsCompleted: workspace.sessionsCompleted + 1,
@@ -230,5 +272,9 @@ export async function finishConversation(args: {
     day: args.day,
   })
 
-  return { reportId: report.id, unlocked: await syncAchievements(args.userId) }
+  return {
+    reportId: report.id,
+    unlocked: await syncAchievements(args.userId),
+    promotedTo: outcome.promotedTo,
+  }
 }

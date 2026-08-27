@@ -2,7 +2,15 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
-import { ArrowLeft, ArrowRight, Clock, Lightbulb, MessageSquareQuote, Quote } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Clock,
+  Lightbulb,
+  MessageSquareQuote,
+  PartyPopper,
+  Quote,
+} from 'lucide-react'
 
 import { CorrectionCard } from '@/components/conversation/feedback-panel'
 import { SaveWordButton } from '@/components/sessions/save-word-button'
@@ -77,11 +85,34 @@ export default async function SessionReportPage({
 
         {report && (
           <div className="flex items-center gap-2">
-            <Badge tone="accent">Estimated {report.estimatedLevel}</Badge>
-            <Badge>{report.wordsSpoken} words spoken</Badge>
+            <Badge tone="accent">{report.estimatedLevel} nesta sessão</Badge>
+            <Badge>{report.wordsSpoken} palavras faladas</Badge>
+            {!report.countsTowardsLevel && (
+              <Badge>Curta demais para contar no nível</Badge>
+            )}
           </div>
         )}
       </header>
+
+      {/*
+        The promotion is announced on the session that earned it. It is stored
+        on the report rather than computed here, so revisiting the session
+        later still shows the moment it happened.
+      */}
+      {report?.promotedTo && (
+        <Card className="mt-8 border-brand-500/40 bg-brand-500/6">
+          <p className="flex items-center gap-2 text-[1.0625rem] font-semibold text-ink">
+            <PartyPopper className="size-5 text-brand-600 dark:text-brand-400" />
+            {report.promotedTo} desbloqueado!
+          </p>
+          <p className="mt-2 text-[0.875rem] leading-relaxed text-muted">
+            Você demonstrou consistência suficiente para avançar para o próximo nível.
+          </p>
+          <p className="mt-3 text-[0.875rem] font-medium text-ink">
+            Seu novo nível: <span className="text-brand-600 dark:text-brand-400">{report.promotedTo}</span>
+          </p>
+        </Card>
+      )}
 
       {!report ? (
         <Card className="mt-8">
