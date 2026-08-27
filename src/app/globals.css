@@ -170,12 +170,21 @@
     scroll-behavior: smooth;
     /* Kills the double-tap-to-zoom delay and gesture on touch devices. */
     touch-action: manipulation;
-    /* Nothing should be draggable sideways, whatever a child does. */
-    overflow-x: hidden;
+    /*
+     * Nothing should be draggable sideways, whatever a child does.
+     *
+     * `clip` rather than `hidden`: `hidden` forces `overflow-y` to `auto`,
+     * which turns these elements into scroll containers. A `position: sticky`
+     * child then anchors to a container that never moves — the sidebar
+     * scrolled away with the page instead of staying put. `clip` cuts the
+     * overflow without creating a scrollport, so sticky still sees the
+     * viewport.
+     */
+    overflow-x: clip;
   }
 
   body {
-    overflow-x: hidden;
+    overflow-x: clip;
     background-color: var(--canvas);
     color: var(--ink);
     font-family: var(--font-sans);

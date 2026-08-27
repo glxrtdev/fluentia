@@ -370,7 +370,9 @@ export default async function DashboardPage() {
               Vocabulário
             </p>
             <p className="display mt-1.5 text-2xl text-ink">{snapshot.words.total}</p>
-            <p className="text-xs text-faint">{snapshot.words.learned} learned</p>
+            <p className="text-xs text-faint">
+              {snapshot.words.learned} {snapshot.words.learned === 1 ? 'aprendida' : 'aprendidas'}
+            </p>
           </div>
           <ArrowRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
         </Link>

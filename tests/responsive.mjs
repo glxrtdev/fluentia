@@ -341,6 +341,54 @@ async function auditOverlays(page, base, viewport, user) {
   }
 }
 
+/**
+ * The sidebar has to stay put while the page scrolls.
+ *
+ * It broke once in a way no screenshot would catch on a short page: setting
+ * `overflow-x: hidden` on html/body forces `overflow-y` to `auto`, which makes
+ * them scroll containers, and a `position: sticky` child then anchors to a
+ * container that never scrolls. The fix is `overflow-x: clip`, and this is
+ * what stops it regressing.
+ */
+async function auditStickyChrome(page, base, viewport) {
+  await page.goto(`${base}/dashboard`, { waitUntil: 'networkidle' })
+
+  const scrollable = await page.evaluate(
+    () => document.documentElement.scrollHeight > window.innerHeight + 50,
+  )
+  if (!scrollable) return // Nothing to scroll past; the check would prove nothing.
+
+  const top = () => page.evaluate(() => document.querySelector('aside')?.getBoundingClientRect().top)
+  const before = await top()
+  await page.evaluate(() => window.scrollBy(0, 400))
+  await page.waitForTimeout(200)
+  const after = await top()
+
+  /*
+   * A pixel of tolerance for sub-pixel rounding at deviceScaleFactor 2. The
+   * failure this guards against moved the sidebar by 455px, so a hair of slack
+   * costs nothing.
+   */
+  record(
+    `${viewport.label.padEnd(12)} the sidebar stays put while the page scrolls`,
+    Math.abs(before - after) <= 1,
+    `top ${before} → ${after}`,
+  )
+
+  const overflow = await page.evaluate(() => {
+    const html = getComputedStyle(document.documentElement)
+    const body = getComputedStyle(document.body)
+    return `${html.overflowY}/${body.overflowY}`
+  })
+  record(
+    `${viewport.label.padEnd(12)} html and body are not scroll containers`,
+    overflow === 'visible/visible',
+    `overflow-y ${overflow}`,
+  )
+
+  await page.evaluate(() => window.scrollTo(0, 0))
+}
+
 async function main() {
   const user = await seed()
   const browser = await chromium.launch()
@@ -426,6 +474,9 @@ async function main() {
     // Overlays only exist once something is tapped, so a page-load sweep never
     // sees them. Drive them on a touch screen and measure what appears.
     if (viewport.width < 1024) await auditOverlays(page, base, viewport, user)
+
+    // The sidebar only exists from lg up, and it must not move with the page.
+    if (viewport.width >= 1024) await auditStickyChrome(page, base, viewport)
 
     await context.close()
   }
