@@ -17,7 +17,8 @@ import {
 import { PageShell } from '@/components/shell/page-header'
 import { Card, SectionTitle } from '@/components/ui/card'
 import { Badge, EmptyState, Progress, Stat } from '@/components/ui/misc'
-import { getProfile, getSettings, requireUser } from '@/lib/auth/session'
+import { getProfile, getSettings, requireUser, requireWorkspace } from '@/lib/auth/session'
+import { getLanguage } from '@/lib/languages'
 import { db } from '@/lib/db'
 import { conversations, goals, mistakes, sessionReports } from '@/lib/db/schema'
 import { activityCalendar } from '@/lib/domain/gamification'
@@ -34,34 +35,39 @@ import {
   startOfWeek,
 } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Dashboard' }
+export const metadata: Metadata = { title: 'Painel' }
 
 const GOAL_LABELS: Record<string, { label: string; unit: string }> = {
-  weekly_sessions: { label: 'Speaking sessions', unit: 'sessions' },
-  weekly_minutes: { label: 'Minutes speaking', unit: 'min' },
-  weekly_words: { label: 'New words', unit: 'words' },
-  weekly_mistakes: { label: 'Mistakes reviewed', unit: 'mistakes' },
+  weekly_sessions: { label: 'Conversas', unit: 'sessões' },
+  weekly_minutes: { label: 'Minutos falando', unit: 'min' },
+  weekly_words: { label: 'Palavras novas', unit: 'palavras' },
+  weekly_mistakes: { label: 'Erros revisados', unit: 'erros' },
 }
 
 export default async function DashboardPage() {
   const user = await requireUser()
-  const [profile, settings] = await Promise.all([getProfile(user.id), getSettings(user.id)])
+  const [profile, settings, workspace] = await Promise.all([
+    getProfile(user.id),
+    getSettings(user.id),
+    requireWorkspace(user.id),
+  ])
 
+  const languageName = getLanguage(workspace.language).name.pt
   const today = localDay()
   const [snapshot, recommendation, progress, calendar, activeGoals, topMistakes, recentSessions] =
     await Promise.all([
-      learningSnapshot(user.id),
-      recommendNext(user.id),
-      weeklyProgress(user.id, startOfWeek(today)),
+      learningSnapshot(workspace.id),
+      recommendNext(workspace.id),
+      weeklyProgress(workspace.id, startOfWeek(today)),
       activityCalendar(user.id, 21, today),
       db
         .select()
         .from(goals)
-        .where(and(eq(goals.userId, user.id), eq(goals.active, true))),
+        .where(and(eq(goals.workspaceId, workspace.id), eq(goals.active, true))),
       db
     .select()
     .from(mistakes)
-    .where(and(eq(mistakes.userId, user.id), eq(mistakes.status, 'open')))
+    .where(and(eq(mistakes.workspaceId, workspace.id), eq(mistakes.status, 'open')))
         .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
         .limit(3),
       db
@@ -74,7 +80,7 @@ export default async function DashboardPage() {
     })
     .from(conversations)
     .leftJoin(sessionReports, eq(sessionReports.conversationId, conversations.id))
-    .where(and(eq(conversations.userId, user.id), eq(conversations.status, 'completed')))
+    .where(and(eq(conversations.workspaceId, workspace.id), eq(conversations.status, 'completed')))
         .orderBy(desc(conversations.startedAt))
         .limit(3),
     ])
@@ -88,35 +94,35 @@ export default async function DashboardPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[0.75rem] font-medium text-muted">
-            Your English journey
+            Sua jornada em {languageName}
           </p>
           <h1 className="display mt-2 text-[2rem] leading-tight text-ink sm:text-[2.5rem]">
             {profile.sessionsCompleted === 0
-              ? `Let's hear your voice, ${firstName}`
-              : `Good to see you, ${firstName}`}
+              ? `Vamos ouvir sua voz, ${firstName}`
+              : `Que bom te ver, ${firstName}`}
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Badge tone="accent">{LEVEL_LABELS[profile.level]}</Badge>
-          {profile.estimatedCefr && <Badge>CEFR {profile.estimatedCefr}</Badge>}
+          <Badge tone="accent">{LEVEL_LABELS[workspace.level]}</Badge>
+          {workspace.estimatedCefr && <Badge>CEFR {workspace.estimatedCefr}</Badge>}
         </div>
       </header>
 
       {/* Stats */}
       <div className="mt-8 grid grid-cols-2 gap-6 rounded-card border border-line bg-surface p-6 sm:grid-cols-4">
         <Stat
-          label="Streak"
+          label="Sequência"
           value={profile.streakCurrent}
-          suffix={profile.streakCurrent === 1 ? 'day' : 'days'}
+          suffix={profile.streakCurrent === 1 ? 'dia' : 'dias'}
           icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
         />
         <Stat
-          label="Practised"
+          label="Praticado"
           value={formatDuration(profile.totalPracticeSeconds)}
           icon={<Clock className="size-3" />}
         />
         <Stat
-          label="Sessions"
+          label="Sessões"
           value={profile.sessionsCompleted}
           icon={<Mic className="size-3" />}
         />
@@ -150,7 +156,7 @@ export default async function DashboardPage() {
                 )
               })}
             </div>
-            <p className="shrink-0 text-[0.6875rem] text-faint">last 21 days</p>
+            <p className="shrink-0 text-[0.6875rem] text-faint">últimos 21 dias</p>
           </div>
         </div>
       </div>
@@ -162,18 +168,18 @@ export default async function DashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-[0.9375rem] font-semibold text-ink">
-                  One step left: your OpenAI key
+                  Falta um passo: sua chave da OpenAI
                 </h2>
                 <p className="mt-1.5 max-w-xl text-[0.8125rem] leading-relaxed text-ink-soft">
-                  Fluentia speaks through your own OpenAI account. Add the key once and the
-                  conversation is ready.
+                  A Fluentia fala pela sua própria conta da OpenAI. Adicione a chave uma vez e a
+                  conversa está pronta.
                 </p>
               </div>
               <Link
                 href="/settings"
                 className="inline-flex items-center gap-2 rounded-pill bg-ink px-5 py-2.5 text-sm font-semibold text-canvas transition-opacity hover:opacity-90"
               >
-                Add my key
+                Adicionar minha chave
                 <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -184,14 +190,14 @@ export default async function DashboardPage() {
               <div className="max-w-xl">
                 <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-brand-400">
                   <Sparkles className="size-3" />
-                  {recommendation ? 'Recommended for you' : 'Continue learning'}
+                  {recommendation ? 'Recomendado para você' : 'Continue aprendendo'}
                 </p>
                 <h2 className="display mt-3 text-2xl leading-tight text-on-pitch sm:text-[1.875rem]">
-                  {recommendation?.topicLabel ?? 'Start a conversation'}
+                  {recommendation?.topicLabel ?? 'Comece uma conversa'}
                 </h2>
                 <p className="mt-2.5 max-w-xl text-[0.875rem] leading-relaxed text-white/60">
                   {recommendation?.reason ??
-                    'Pick any topic and start talking. The teacher adapts to how you speak.'}
+                    'Escolha qualquer tema e comece a falar. O professor se adapta ao seu jeito.'}
                 </p>
               </div>
 
@@ -200,7 +206,7 @@ export default async function DashboardPage() {
                 className="inline-flex items-center gap-2 rounded-control bg-brand-500 px-5 py-2.5 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
                 <Mic className="size-4" />
-                Start speaking
+                Começar a falar
               </Link>
             </div>
           </div>
@@ -211,12 +217,12 @@ export default async function DashboardPage() {
       {activeGoals.length > 0 && (
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between">
-            <SectionTitle>This week</SectionTitle>
+            <SectionTitle>Esta semana</SectionTitle>
             <Link
               href="/goals"
               className="text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
             >
-              Adjust goals
+              Ajustar metas
             </Link>
           </div>
 
@@ -257,20 +263,20 @@ export default async function DashboardPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
-            <SectionTitle>Where you slip</SectionTitle>
+            <SectionTitle>Onde você escorrega</SectionTitle>
             <Link
               href="/mistakes"
               className="text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
             >
-              All mistakes
+              Todos os erros
             </Link>
           </div>
 
           {topMistakes.length === 0 ? (
             <EmptyState
               icon={<SpellCheck className="size-4" />}
-              title="No mistakes tracked yet"
-              description="After your first conversation, the patterns worth fixing collect here with real counts."
+              title="Nenhum erro registrado ainda"
+              description="Depois da sua primeira conversa, os padrões que valem corrigir se juntam aqui, com a contagem real."
             />
           ) : (
             <Card className="divide-y divide-line p-0">
@@ -303,26 +309,26 @@ export default async function DashboardPage() {
 
         <section className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
-            <SectionTitle>Recent sessions</SectionTitle>
+            <SectionTitle>Sessões recentes</SectionTitle>
             <Link
               href="/sessions"
               className="text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
             >
-              All sessions
+              Todas as sessões
             </Link>
           </div>
 
           {recentSessions.length === 0 ? (
             <EmptyState
               icon={<Mic className="size-4" />}
-              title="Nothing here yet"
-              description="Your first conversation will appear here with its score and the mistakes it surfaced."
+              title="Nada por aqui ainda"
+              description="Sua primeira conversa vai aparecer aqui, com a nota e os erros que ela revelou."
               action={
                 <Link
                   href="/speak"
                   className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
                 >
-                  Start one now
+                  Comece uma agora
                 </Link>
               }
             />
@@ -361,7 +367,7 @@ export default async function DashboardPage() {
           <div>
             <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-muted">
               <BookMarked className="size-3.5" />
-              Vocabulary
+              Vocabulário
             </p>
             <p className="display mt-1.5 text-2xl text-ink">{snapshot.words.total}</p>
             <p className="text-xs text-faint">{snapshot.words.learned} learned</p>
@@ -376,13 +382,13 @@ export default async function DashboardPage() {
           <div>
             <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-muted">
               <Target className="size-3.5" />
-              Speaking average
+              Média de fala
             </p>
             <p className="display mt-1.5 text-2xl text-ink">
               {snapshot.scores.speaking ?? '—'}
             </p>
             <p className="text-xs text-faint">
-              {snapshot.scores.sessions} scored {snapshot.scores.sessions === 1 ? 'session' : 'sessions'}
+              {snapshot.scores.sessions} {snapshot.scores.sessions === 1 ? 'sessão avaliada' : 'sessões avaliadas'}
             </p>
           </div>
           <ArrowRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />
@@ -395,11 +401,11 @@ export default async function DashboardPage() {
           <div>
             <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-muted">
               <Award className="size-3.5" />
-              Longest streak
+              Maior sequência
             </p>
             <p className="display mt-1.5 text-2xl text-ink">{profile.streakLongest}</p>
             <p className="text-xs text-faint">
-              {pct(profile.streakCurrent, Math.max(1, profile.streakLongest))}% of your best
+              {pct(profile.streakCurrent, Math.max(1, profile.streakLongest))}% do seu recorde
             </p>
           </div>
           <ArrowRight className="size-4 text-faint transition-transform group-hover:translate-x-0.5" />

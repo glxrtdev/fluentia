@@ -52,14 +52,18 @@ export const sessions = pgTable(
 
 /* --------------------------------------------------------------- profiles */
 
-export const ENGLISH_LEVELS = [
+export const LEVELS = [
   'beginner',
   'elementary',
   'intermediate',
   'upper-intermediate',
   'advanced',
 ] as const
-export type EnglishLevel = (typeof ENGLISH_LEVELS)[number]
+export type Level = (typeof LEVELS)[number]
+
+/** @deprecated Kept so older imports keep compiling. Use `LEVELS` / `Level`. */
+export const ENGLISH_LEVELS = LEVELS
+export type EnglishLevel = Level
 
 export const MAIN_GOALS = [
   'travel',
@@ -72,19 +76,18 @@ export const MAIN_GOALS = [
 export type MainGoal = (typeof MAIN_GOALS)[number]
 
 /** The evolving linguistic profile. One row per user. */
+/**
+ * What belongs to the person rather than to any one language.
+ *
+ * Practising Japanese on Tuesday should not break the streak built in English,
+ * so the daily habit and the XP that rewards it live here, once per account.
+ * Everything that describes progress *in a language* lives on the workspace.
+ */
 export const profiles = pgTable('profiles', {
   userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
-  level: text('level').notNull().default('intermediate').$type<EnglishLevel>(),
-  autoAdaptLevel: boolean('auto_adapt_level').notNull().default(true),
-  estimatedCefr: text('estimated_cefr'), // A1..C2, derived from session reports
-  mainGoal: text('main_goal').$type<MainGoal>(),
-  dailyMinutesGoal: integer('daily_minutes_goal').notNull().default(20),
   nativeLanguage: text('native_language').notNull().default('pt-BR'),
-  interests: jsonb('interests').$type<string[]>().notNull().default([]),
-  strengths: jsonb('strengths').$type<string[]>().notNull().default([]),
-  weaknesses: jsonb('weaknesses').$type<string[]>().notNull().default([]),
   xp: integer('xp').notNull().default(0),
   streakCurrent: integer('streak_current').notNull().default(0),
   streakLongest: integer('streak_longest').notNull().default(0),
@@ -94,6 +97,42 @@ export const profiles = pgTable('profiles', {
   onboardedAt: optionalStamp('onboarded_at'),
   updatedAt: stamp('updated_at'),
 })
+
+/* ------------------------------------------------------------- workspaces */
+
+/**
+ * One language a learner is practising. An account may hold a few at once, and
+ * every piece of learning — level, mistakes, vocabulary, sessions, goals — is
+ * scoped to exactly one of them.
+ */
+export const workspaces = pgTable(
+  'workspaces',
+  {
+    id: id(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    language: text('language').notNull(), // LanguageCode from lib/languages
+    level: text('level').notNull().default('intermediate').$type<Level>(),
+    autoAdaptLevel: boolean('auto_adapt_level').notNull().default(true),
+    estimatedCefr: text('estimated_cefr'), // A1..C2, derived from session reports
+    mainGoal: text('main_goal').$type<MainGoal>(),
+    dailyMinutesGoal: integer('daily_minutes_goal').notNull().default(20),
+    interests: jsonb('interests').$type<string[]>().notNull().default([]),
+    strengths: jsonb('strengths').$type<string[]>().notNull().default([]),
+    weaknesses: jsonb('weaknesses').$type<string[]>().notNull().default([]),
+    totalPracticeSeconds: integer('total_practice_seconds').notNull().default(0),
+    sessionsCompleted: integer('sessions_completed').notNull().default(0),
+    createdAt: stamp('created_at'),
+    updatedAt: stamp('updated_at'),
+  },
+  (t) => [
+    // One workspace per language per account: two English spaces would split
+    // the same learner's history for no reason.
+    uniqueIndex('workspaces_user_language_unique').on(t.userId, t.language),
+    index('workspaces_user_idx').on(t.userId, t.createdAt),
+  ],
+)
 
 /** Secrets and preferences, kept apart from the learning profile. */
 export const userSettings = pgTable('user_settings', {
@@ -113,6 +152,12 @@ export const userSettings = pgTable('user_settings', {
   ttsModel: text('tts_model'),
   voice: text('voice').notNull().default('alloy'),
   theme: text('theme').notNull().default('system').$type<'system' | 'light' | 'dark'>(),
+  /*
+   * The workspace the learner last had open. Not a foreign key: deleting a
+   * workspace would otherwise have to reach in here, and a stale id simply
+   * falls back to the first workspace.
+   */
+  activeWorkspaceId: text('active_workspace_id'),
   updatedAt: stamp('updated_at'),
 })
 
@@ -125,11 +170,20 @@ export const conversations = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    /*
+     * Denormalised from the workspace on purpose. Every spoken turn needs the
+     * language, and the conversation row is already loaded — looking it up
+     * would add a round trip to a database on another continent, per turn.
+     */
+    language: text('language').notNull().default('en'),
     topicId: text('topic_id'), // null for custom topics
     topicLabel: text('topic_label').notNull(),
     category: text('category').notNull().default('custom'),
     customBrief: text('custom_brief'),
-    level: text('level').notNull().$type<EnglishLevel>(),
+    level: text('level').notNull().$type<Level>(),
     status: text('status').notNull().default('active').$type<'active' | 'completed'>(),
     startedAt: stamp('started_at'),
     endedAt: optionalStamp('ended_at'),
@@ -197,6 +251,9 @@ export const sessionReports = pgTable(
   'session_reports',
   {
     id: id(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     conversationId: text('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
@@ -236,6 +293,9 @@ export const mistakes = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     category: text('category').notNull().$type<CorrectionCategory>(),
     signature: text('signature').notNull(), // normalized "original>corrected"
     original: text('original').notNull(),
@@ -247,8 +307,8 @@ export const mistakes = pgTable(
     lastSeenAt: stamp('last_seen_at'),
   },
   (t) => [
-    uniqueIndex('mistakes_user_signature_unique').on(t.userId, t.signature),
-    index('mistakes_user_occurrences_idx').on(t.userId, t.occurrences),
+    uniqueIndex('mistakes_workspace_signature_unique').on(t.workspaceId, t.signature),
+    index('mistakes_workspace_occurrences_idx').on(t.workspaceId, t.occurrences),
   ],
 )
 
@@ -280,6 +340,9 @@ export const vocabulary = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     word: text('word').notNull(),
     partOfSpeech: text('part_of_speech'),
     phonetic: text('phonetic'),
@@ -314,6 +377,9 @@ export const goals = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull().$type<GoalKind>(),
     target: integer('target').notNull(),
     active: boolean('active').notNull().default(true),
@@ -374,6 +440,7 @@ export const practiceSessions = pgTable(
     conversationId: text('conversation_id').references(() => conversations.id, {
       onDelete: 'set null',
     }),
+    workspaceId: text('workspace_id').references(() => workspaces.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull().$type<'conversation' | 'vocabulary' | 'review'>(),
     seconds: integer('seconds').notNull().default(0),
     xpEarned: integer('xp_earned').notNull().default(0),
@@ -388,9 +455,15 @@ export const practiceSessions = pgTable(
 export const usersRelations = relations(users, ({ one, many }) => ({
   profile: one(profiles, { fields: [users.id], references: [profiles.userId] }),
   settings: one(userSettings, { fields: [users.id], references: [userSettings.userId] }),
+  workspaces: many(workspaces),
+}))
+
+export const workspacesRelations = relations(workspaces, ({ one, many }) => ({
+  user: one(users, { fields: [workspaces.userId], references: [users.id] }),
   conversations: many(conversations),
   vocabulary: many(vocabulary),
   mistakes: many(mistakes),
+  goals: many(goals),
 }))
 
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({

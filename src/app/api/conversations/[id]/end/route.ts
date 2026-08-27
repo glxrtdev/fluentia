@@ -9,11 +9,11 @@ import { endConversationSchema } from '@/lib/validation'
 /** Ends a session and returns the id of the report the client should open. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
-  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const { id } = await params
   const conversation = await getOwnedConversation(user.id, id)
-  if (!conversation) return Response.json({ error: 'Conversation not found' }, { status: 404 })
+  if (!conversation) return Response.json({ error: 'Conversa não encontrada' }, { status: 404 })
 
   const limit = rateLimit(`end:${user.id}`, 20, 5 * 60_000)
   if (!limit.ok) return Response.json({ error: 'Too many requests.' }, { status: 429 })
@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const parsed = endConversationSchema.safeParse({
     durationSeconds: Number(body?.durationSeconds ?? 0),
   })
-  if (!parsed.success) return Response.json({ error: 'Invalid duration.' }, { status: 400 })
+  if (!parsed.success) return Response.json({ error: 'Duração inválida.' }, { status: 400 })
 
   try {
     const result = await finishConversation({

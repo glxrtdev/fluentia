@@ -17,7 +17,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         not on the light surfaces.
       */}
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-pitch p-10 lg:flex">
-        <Link href="/" aria-label="Fluentia home" className="w-fit rounded-lg">
+        <Link href="/" aria-label="Início da Fluentia" className="w-fit rounded-lg">
           <LogoMark />
         </Link>
 
@@ -30,16 +30,16 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             className="mb-8 w-[22rem] max-w-full"
           />
           <p className="display text-[1.75rem] leading-[1.2] text-on-pitch">
-            The fastest way to speak English is to speak English.
+            O jeito mais rápido de falar um idioma é falando.
           </p>
           <p className="mt-5 text-[0.875rem] leading-relaxed text-white/55">
-            Fluentia gives you somewhere to do that every day — with a teacher that listens,
-            answers out loud, and remembers what you keep getting wrong.
+            A Fluentia te dá onde fazer isso todo dia — com uma professora que escuta, responde
+            em voz alta e lembra do que você continua errando.
           </p>
         </div>
 
         <p className="text-xs text-white/40">
-          Bring your own OpenAI key · your conversations stay in your own database
+          Use sua própria chave da OpenAI · suas conversas ficam no seu próprio banco
         </p>
       </aside>
 
@@ -54,7 +54,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
         <p className="text-center text-xs text-faint">
           <Link href="/" className="transition-colors hover:text-muted">
-            Back to home
+            Voltar ao início
           </Link>
         </p>
       </main>

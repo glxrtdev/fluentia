@@ -21,7 +21,7 @@ import { getProfile, requireUser } from '@/lib/auth/session'
 import { listAchievements } from '@/lib/domain/gamification'
 import { cn, formatNumber, formatRelative } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Achievements' }
+export const metadata: Metadata = { title: 'Conquistas' }
 
 const ICONS: Record<string, typeof Award> = {
   sparkles: Sparkles,
@@ -45,19 +45,19 @@ export default async function AchievementsPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Progress"
-        title="Achievements"
-        description="Unlocked from real activity — sessions finished, minutes spoken, words learned, mistakes beaten."
+        eyebrow="Progresso"
+        title="Conquistas"
+        description="Desbloqueadas por atividade real — sessões concluídas, minutos falados, palavras aprendidas, erros vencidos."
       />
 
       <Card className="mt-8">
         <div className="flex flex-wrap items-end justify-between gap-6">
-          <Stat label="Unlocked" value={`${unlocked.length}/${all.length}`} />
+          <Stat label="Desbloqueada" value={`${unlocked.length}/${all.length}`} />
           <Stat label="XP" value={formatNumber(profile.xp)} />
           <Stat
-            label="Streak"
+            label="Sequência"
             value={profile.streakCurrent}
-            suffix="days"
+            suffix="dias"
             icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
           />
         </div>
@@ -65,7 +65,7 @@ export default async function AchievementsPage() {
           value={unlocked.length}
           total={all.length}
           className="mt-5"
-          label="Achievements unlocked"
+          label="Conquistas desbloqueadas"
         />
       </Card>
 
@@ -109,7 +109,7 @@ export default async function AchievementsPage() {
                 </p>
                 {achievement.unlockedAt && (
                   <p className="mt-3 text-[0.6875rem] font-medium text-brand-600 dark:text-brand-400">
-                    unlocked {formatRelative(achievement.unlockedAt)}
+                    desbloqueada {formatRelative(achievement.unlockedAt)}
                   </p>
                 )}
               </Card>

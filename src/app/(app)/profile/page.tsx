@@ -6,14 +6,15 @@ import { ArrowRight, Minus, TrendingUp } from 'lucide-react'
 import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { Card, SectionTitle } from '@/components/ui/card'
 import { Badge, Progress, Stat } from '@/components/ui/misc'
-import { getProfile, requireUser } from '@/lib/auth/session'
+import { getProfile, requireUser, requireWorkspace } from '@/lib/auth/session'
+import { getLanguage } from '@/lib/languages'
 import { db } from '@/lib/db'
 import { conversations, mistakes, sessionReports } from '@/lib/db/schema'
 import { CORRECTION_CATEGORIES } from '@/lib/db/schema'
 import { learningSnapshot } from '@/lib/domain/recommendations'
 import { CATEGORY_LABELS, cn, formatDuration, LEVEL_LABELS } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'English profile' }
+export const metadata: Metadata = { title: 'Perfil de idioma' }
 
 const MIX_SHADES = [
   'bg-brand-500',
@@ -28,9 +29,9 @@ const CEFR_SCALE = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
 export default async function ProfilePage() {
   const user = await requireUser()
-  const profile = await getProfile(user.id)
+  const [profile, workspace] = await Promise.all([getProfile(user.id), requireWorkspace(user.id)])
   const [snapshot, trendRows, mistakeMix] = await Promise.all([
-    learningSnapshot(user.id),
+    learningSnapshot(workspace.id),
     db
     .select({
       speaking: sessionReports.speaking,
@@ -40,7 +41,7 @@ export default async function ProfilePage() {
     })
     .from(sessionReports)
     .innerJoin(conversations, eq(conversations.id, sessionReports.conversationId))
-    .where(eq(sessionReports.userId, user.id))
+    .where(eq(sessionReports.workspaceId, workspace.id))
       .orderBy(desc(sessionReports.createdAt))
       .limit(8),
     db
@@ -49,14 +50,14 @@ export default async function ProfilePage() {
       total: sql<number>`coalesce(sum(${mistakes.occurrences}), 0)::int`,
     })
     .from(mistakes)
-    .where(and(eq(mistakes.userId, user.id), eq(mistakes.status, 'open')))
+    .where(and(eq(mistakes.workspaceId, workspace.id), eq(mistakes.status, 'open')))
       .groupBy(mistakes.category),
   ])
 
   const trend = [...trendRows].reverse()
 
   const mixTotal = mistakeMix.reduce((total, row) => total + row.total, 0)
-  const cefrIndex = profile.estimatedCefr ? CEFR_SCALE.indexOf(profile.estimatedCefr) : -1
+  const cefrIndex = workspace.estimatedCefr ? CEFR_SCALE.indexOf(workspace.estimatedCefr) : -1
 
   const improvement =
     trend.length >= 4
@@ -69,28 +70,28 @@ export default async function ProfilePage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="English profile"
-        title="How you speak"
-        description="Built entirely from your own sessions. The teacher reads this before every conversation."
+        eyebrow={`${getLanguage(workspace.language).name.en} profile`}
+        title="Como você fala"
+        description="Montado inteiramente a partir das suas sessões. O professor lê isto antes de cada conversa."
       />
 
-      {/* Level */}
+      {/* Nível */}
       <Card className="mt-8">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
-            <SectionTitle>Level</SectionTitle>
+            <SectionTitle>Nível</SectionTitle>
             <p className="display mt-2 text-4xl text-ink">
-              {profile.estimatedCefr ?? LEVEL_LABELS[profile.level]}
+              {workspace.estimatedCefr ?? LEVEL_LABELS[workspace.level]}
             </p>
             <p className="mt-1.5 text-[0.8125rem] text-muted">
-              {profile.estimatedCefr
-                ? `Estimated from your sessions · practising at ${LEVEL_LABELS[profile.level]}`
-                : 'Finish a session and Fluentia estimates your CEFR level'}
+              {workspace.estimatedCefr
+                ? `Estimado a partir das suas sessões · praticando em ${LEVEL_LABELS[workspace.level]}`
+                : 'Conclua uma sessão e a Fluentia estima seu nível CEFR'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {profile.autoAdaptLevel && <Badge tone="accent">Auto-adapting</Badge>}
+            {workspace.autoAdaptLevel && <Badge tone="accent">Ajuste automático</Badge>}
             {improvement !== null && (
               <Badge tone={improvement >= 0 ? 'accent' : 'danger'}>
                 {improvement >= 0 ? <TrendingUp className="size-3" /> : <Minus className="size-3" />}
@@ -127,23 +128,23 @@ export default async function ProfilePage() {
 
       {/* Counters */}
       <div className="mt-6 grid grid-cols-2 gap-6 rounded-card border border-line bg-surface p-6 sm:grid-cols-4">
-        <Stat label="Vocabulary" value={snapshot.words.total} suffix="words" />
-        <Stat label="Speaking" value={profile.sessionsCompleted} suffix="sessions" />
-        <Stat label="Mistakes" value={snapshot.mistakes.tracked} suffix="tracked" />
-        <Stat label="Time" value={formatDuration(profile.totalPracticeSeconds)} />
+        <Stat label="Vocabulário" value={snapshot.words.total} suffix="palavras" />
+        <Stat label="Fala" value={profile.sessionsCompleted} suffix="sessões" />
+        <Stat label="Erros" value={snapshot.mistakes.tracked} suffix="registrados" />
+        <Stat label="Tempo" value={formatDuration(profile.totalPracticeSeconds)} />
       </div>
 
-      {/* Strengths and weaknesses */}
+      {/* Pontos fortes and weaknesses */}
       <div className="mt-6 grid gap-6 sm:grid-cols-2">
         <Card>
-          <SectionTitle>Strengths</SectionTitle>
-          {profile.strengths.length === 0 ? (
+          <SectionTitle>Pontos fortes</SectionTitle>
+          {workspace.strengths.length === 0 ? (
             <p className="mt-3 text-[0.8125rem] leading-relaxed text-muted">
-              Your first session report fills this in.
+              O relatório da sua primeira sessão preenche isto.
             </p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {profile.strengths.map((item) => (
+              {workspace.strengths.map((item) => (
                 <li key={item} className="flex items-center gap-2 text-[0.875rem] text-ink">
                   <span className="size-1.5 rounded-full bg-brand-500" />
                   {item}
@@ -154,14 +155,14 @@ export default async function ProfilePage() {
         </Card>
 
         <Card>
-          <SectionTitle>Needs improvement</SectionTitle>
-          {profile.weaknesses.length === 0 ? (
+          <SectionTitle>A melhorar</SectionTitle>
+          {workspace.weaknesses.length === 0 ? (
             <p className="mt-3 text-[0.8125rem] leading-relaxed text-muted">
-              Nothing flagged yet — have a conversation and this becomes specific.
+              Nada apontado ainda — converse um pouco e isto fica específico.
             </p>
           ) : (
             <ul className="mt-3 space-y-2">
-              {profile.weaknesses.map((item) => (
+              {workspace.weaknesses.map((item) => (
                 <li key={item} className="flex items-center gap-2 text-[0.875rem] text-ink">
                   <span className="size-1.5 rounded-full bg-brand-500" />
                   {item}
@@ -175,14 +176,17 @@ export default async function ProfilePage() {
       {/* Score averages */}
       {snapshot.scores.sessions > 0 && (
         <Card className="mt-6">
-          <SectionTitle>Averages across {snapshot.scores.sessions} scored sessions</SectionTitle>
+          <SectionTitle>
+            Médias de {snapshot.scores.sessions}{' '}
+            {snapshot.scores.sessions === 1 ? 'sessão avaliada' : 'sessões avaliadas'}
+          </SectionTitle>
           <ul className="mt-4 space-y-4">
             {(
               [
-                ['Speaking', snapshot.scores.speaking],
-                ['Grammar', snapshot.scores.grammar],
-                ['Vocabulary', snapshot.scores.vocabulary],
-                ['Fluency', snapshot.scores.fluency],
+                ['Fala', snapshot.scores.speaking],
+                ['Gramática', snapshot.scores.grammar],
+                ['Vocabulário', snapshot.scores.vocabulary],
+                ['Fluência', snapshot.scores.fluency],
               ] as const
             ).map(([label, value]) => (
               <li key={label}>
@@ -203,12 +207,12 @@ export default async function ProfilePage() {
       {mixTotal > 0 && (
         <Card className="mt-6">
           <div className="flex items-center justify-between">
-            <SectionTitle>Where your mistakes come from</SectionTitle>
+            <SectionTitle>De onde vêm seus erros</SectionTitle>
             <Link
               href="/mistakes"
               className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
             >
-              Details
+              Detalhes
               <ArrowRight className="size-3.5" />
             </Link>
           </div>
@@ -247,7 +251,7 @@ export default async function ProfilePage() {
       {/* Trend */}
       {trend.length >= 2 && (
         <Card className="mt-6">
-          <SectionTitle>Speaking score over time</SectionTitle>
+          <SectionTitle>Nota de fala ao longo do tempo</SectionTitle>
           <div className="mt-6 flex h-32 items-end gap-2">
             {trend.map((point) => (
               <Link

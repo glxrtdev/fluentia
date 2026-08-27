@@ -5,16 +5,17 @@ import { ArrowRight, Mic } from 'lucide-react'
 
 import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { Badge, EmptyState } from '@/components/ui/misc'
-import { requireUser } from '@/lib/auth/session'
+import { requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { conversations, sessionReports } from '@/lib/db/schema'
 import { CATEGORY_BY_ID } from '@/lib/domain/topics'
 import { cn, formatDate, formatDuration, LEVEL_LABELS } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'My sessions' }
+export const metadata: Metadata = { title: 'Minhas sessões' }
 
 export default async function SessionsPage() {
   const user = await requireUser()
+  const workspace = await requireWorkspace(user.id)
 
   const rows = await db
     .select({
@@ -35,30 +36,30 @@ export default async function SessionsPage() {
     })
     .from(conversations)
     .leftJoin(sessionReports, eq(sessionReports.conversationId, conversations.id))
-    .where(eq(conversations.userId, user.id))
+    .where(eq(conversations.workspaceId, workspace.id))
     .orderBy(desc(conversations.startedAt))
     .limit(60)
 
   return (
     <PageShell>
       <PageHeader
-        eyebrow="History"
-        title="My sessions"
-        description="Every conversation you have had, with its score, its length and the mistakes it surfaced."
+        eyebrow="Histórico"
+        title="Minhas sessões"
+        description="Cada conversa que você teve, com a nota, a duração e os erros que ela revelou."
       />
 
       {rows.length === 0 ? (
         <div className="mt-8">
           <EmptyState
             icon={<Mic className="size-4" />}
-            title="No sessions yet"
-            description="Your conversations, reports and transcripts will live here."
+            title="Nenhuma sessão ainda"
+            description="Suas conversas, relatórios e transcrições vão ficar aqui."
             action={
               <Link
                 href="/speak"
                 className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
-                Start your first conversation
+                Comece sua primeira conversa
               </Link>
             }
           />
@@ -87,7 +88,7 @@ export default async function SessionsPage() {
                       </span>
                       {live && <Badge tone="accent">in progress</Badge>}
                       <Badge>
-                        {CATEGORY_BY_ID.get(session.category as never)?.label ?? 'Custom'}
+                        {CATEGORY_BY_ID.get(session.category as never)?.label ?? 'Personalizado'}
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted">

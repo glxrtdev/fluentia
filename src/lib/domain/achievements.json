@@ -1,85 +1,85 @@
 [
   {
     "id": "first-conversation",
-    "title": "First Conversation",
-    "description": "Complete your first speaking session",
+    "title": "Primeira conversa",
+    "description": "Conclua sua primeira sessão de fala",
     "icon": "sparkles",
     "xp": 50
   },
   {
     "id": "ten-conversations",
-    "title": "10 Conversations",
-    "description": "Complete ten speaking sessions",
+    "title": "10 conversas",
+    "description": "Conclua dez sessões de fala",
     "icon": "messages",
     "xp": 150
   },
   {
     "id": "fifty-conversations",
-    "title": "50 Conversations",
-    "description": "Complete fifty speaking sessions",
+    "title": "50 conversas",
+    "description": "Conclua cinquenta sessões de fala",
     "icon": "trophy",
     "xp": 500
   },
   {
     "id": "one-hour-speaking",
-    "title": "1 Hour Speaking",
-    "description": "Reach one hour of total speaking practice",
+    "title": "1 hora falando",
+    "description": "Alcance uma hora de prática de fala no total",
     "icon": "clock",
     "xp": 120
   },
   {
     "id": "five-hours-speaking",
-    "title": "5 Hours Speaking",
-    "description": "Reach five hours of total speaking practice",
+    "title": "5 horas falando",
+    "description": "Alcance cinco horas de prática de fala no total",
     "icon": "clock",
     "xp": 400
   },
   {
     "id": "seven-day-streak",
-    "title": "7 Day Streak",
-    "description": "Practise seven days in a row",
+    "title": "7 dias seguidos",
+    "description": "Pratique sete dias seguidos",
     "icon": "flame",
     "xp": 200
   },
   {
     "id": "thirty-day-streak",
-    "title": "30 Day Streak",
-    "description": "Practise thirty days in a row",
+    "title": "30 dias seguidos",
+    "description": "Pratique trinta dias seguidos",
     "icon": "flame",
     "xp": 800
   },
   {
     "id": "hundred-words",
-    "title": "100 Words Learned",
-    "description": "Mark one hundred words as learned",
+    "title": "100 palavras aprendidas",
+    "description": "Marque cem palavras como aprendidas",
     "icon": "book",
     "xp": 300
   },
   {
     "id": "first-career-session",
-    "title": "First Career Session",
-    "description": "Talk about your career in English",
+    "title": "Primeira sessão de carreira",
+    "description": "Fale sobre sua carreira no idioma que você pratica",
     "icon": "briefcase",
     "xp": 60
   },
   {
     "id": "first-advanced-session",
-    "title": "First Advanced Session",
-    "description": "Complete a conversation at advanced level",
+    "title": "Primeira sessão avançada",
+    "description": "Conclua uma conversa em nível avançado",
     "icon": "mountain",
     "xp": 180
   },
   {
     "id": "mistake-tamer",
-    "title": "Mistake Tamer",
-    "description": "Fix a recurring mistake for good",
+    "title": "Domador de erros",
+    "description": "Corrija um erro recorrente de vez",
     "icon": "target",
     "xp": 150
   },
   {
     "id": "high-scorer",
-    "title": "High Scorer",
-    "description": "Score 85 or more on speaking",
+    "title": "Nota alta",
+    "description": "Tire 85 ou mais em fala",
     "icon": "star",
     "xp": 250
   }

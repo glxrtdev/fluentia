@@ -15,6 +15,7 @@ import {
 import { recordMistakes } from '@/lib/domain/mistakes'
 import { getUserAi, toAiError } from '@/lib/openai/client'
 import { generateTurn, transcribe } from '@/lib/openai/conversation'
+import { getLanguage } from '@/lib/languages'
 import { rateLimit } from '@/lib/rate-limit'
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024 // OpenAI's own upload ceiling
@@ -45,19 +46,19 @@ const ACCEPTED = Object.keys(EXTENSIONS)
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser()
-  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const { id } = await params
   const conversation = await getOwnedConversation(user.id, id)
-  if (!conversation) return Response.json({ error: 'Conversation not found' }, { status: 404 })
+  if (!conversation) return Response.json({ error: 'Conversa não encontrada' }, { status: 404 })
   if (conversation.status !== 'active') {
-    return Response.json({ error: 'This session has already ended.' }, { status: 409 })
+    return Response.json({ error: 'Esta sessão já foi encerrada.' }, { status: 409 })
   }
 
   const limit = rateLimit(`turn:${user.id}`, 90, 5 * 60_000)
   if (!limit.ok) {
     return Response.json(
-      { error: 'Too many turns too quickly. Give it a few seconds.' },
+      { error: 'Falas demais em pouco tempo. Espere alguns segundos.' },
       { status: 429 },
     )
   }
@@ -66,16 +67,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   try {
     form = await request.formData()
   } catch {
-    return Response.json({ error: 'Expected an audio upload.' }, { status: 400 })
+    return Response.json({ error: 'Era esperado um envio de áudio.' }, { status: 400 })
   }
 
   const audio = form.get('audio')
   if (!(audio instanceof File)) {
-    return Response.json({ error: 'Expected an audio upload.' }, { status: 400 })
+    return Response.json({ error: 'Era esperado um envio de áudio.' }, { status: 400 })
   }
-  if (audio.size === 0) return Response.json({ error: 'The recording was empty.' }, { status: 400 })
+  if (audio.size === 0) return Response.json({ error: 'A gravação estava vazia.' }, { status: 400 })
   if (audio.size > MAX_AUDIO_BYTES) {
-    return Response.json({ error: 'That recording is too long.' }, { status: 413 })
+    return Response.json({ error: 'Essa gravação é longa demais.' }, { status: 413 })
   }
 
   const mime = (audio.type || '').split(';')[0]
@@ -93,7 +94,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       type: mime || 'audio/webm',
     })
 
-    const transcript = await transcribe(ai, file)
+    const transcript = await transcribe(ai, file, getLanguage(conversation.language).sttCode)
     // Nothing intelligible: tell the client so it can prompt a retry without
     // polluting the transcript or spending a chat call.
     if (transcript.replace(/[^\p{L}\p{N}]/gu, '').length < 2) {
@@ -106,7 +107,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
      * for someone mid-conversation.
      */
     const [prompt, history] = await Promise.all([
-      buildPromptFor(user.id, user.name, conversation),
+      buildPromptFor(conversation.workspaceId, user.name, conversation),
       conversationHistory(conversation.id),
     ])
 
@@ -139,6 +140,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     after(async () => {
       await recordMistakes(
         user.id,
+        conversation.workspaceId,
         conversation.id,
         turn.corrections.map((correction) => ({
           category: correction.category,

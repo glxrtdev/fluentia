@@ -9,6 +9,8 @@ import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { GROUP_LABELS, NAV, type NavItem } from '@/components/shell/nav'
 import { cn, formatNumber, initials } from '@/lib/utils'
 
+import { WorkspaceSwitcher, type WorkspaceSummary } from '@/components/shell/workspace-switcher'
+
 import type { ShellUser } from '@/components/shell/mobile-nav'
 
 const isActive = (pathname: string, href: string) =>
@@ -36,7 +38,19 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   )
 }
 
-export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Promise<void> }) {
+export function Sidebar({
+  user,
+  workspaces,
+  activeWorkspaceId,
+  canAddWorkspace,
+  signOut,
+}: {
+  user: ShellUser
+  workspaces: WorkspaceSummary[]
+  activeWorkspaceId: string
+  canAddWorkspace: boolean
+  signOut: () => Promise<void>
+}) {
   const pathname = usePathname()
   const groups = ['practice', 'learning', 'progress'] as const
 
@@ -44,12 +58,19 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-canvas-soft px-4 py-5 lg:flex">
       <Logo href="/dashboard" className="px-1" />
 
+      <WorkspaceSwitcher
+        workspaces={workspaces}
+        activeId={activeWorkspaceId}
+        canAdd={canAddWorkspace}
+        className="mt-5"
+      />
+
       <Link
         href="/speak"
-        className="mt-5 flex h-10 items-center justify-center gap-2 rounded-control bg-brand-500 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600 active:scale-[0.985]"
+        className="mt-2.5 flex h-10 items-center justify-center gap-2 rounded-control bg-brand-500 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600 active:scale-[0.985]"
       >
         <Plus className="size-4" />
-        New conversation
+        Nova conversa
       </Link>
 
       <nav className="mt-7 flex-1 space-y-6 overflow-y-auto scroll-slim">
@@ -72,7 +93,7 @@ export function Sidebar({ user, signOut }: { user: ShellUser; signOut: () => Pro
           <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-semibold text-brand-600 dark:text-brand-400">
             <Flame className="size-3.5" />
             {user.streak}
-            <span className="font-medium text-muted">day streak</span>
+            <span className="font-medium text-muted">dias seguidos</span>
           </span>
           <ThemeToggle initial={user.theme} />
         </div>

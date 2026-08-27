@@ -121,7 +121,7 @@ export function ConversationRoom({
     }
     audio.onerror = () => {
       setPhase('idle')
-      setNotice('The audio could not be played. The transcript is still there.')
+      setNotice('Não foi possível tocar o áudio. A transcrição continua aí.')
     }
 
     audio.src = `/api/speech?messageId=${encodeURIComponent(messageId)}`
@@ -129,7 +129,7 @@ export function ConversationRoom({
     audio.play().catch(() => {
       // Autoplay blocked or playback failed: hand the turn back to the learner.
       setPhase('idle')
-      setNotice('Tap the replay button to hear the teacher.')
+      setNotice('Toque no botão de repetir para ouvir o professor.')
     })
   }, [])
 
@@ -157,13 +157,13 @@ export function ConversationRoom({
         if (!liveRef.current) return
 
         if (!response.ok) {
-          setError(data?.error ?? 'Something went wrong. Try again.')
+          setError(data?.error ?? 'Algo deu errado. Tente de novo.')
           setPhase('idle')
           return
         }
 
         if (data.empty) {
-          setNotice('I could not hear that. Try again a little closer to the mic.')
+          setNotice('Não consegui ouvir. Tente de novo, um pouco mais perto do microfone.')
           setPhase('idle')
           return
         }
@@ -182,7 +182,7 @@ export function ConversationRoom({
       } catch (err) {
         // Aborting on purpose is not a failure worth reporting.
         if ((err as Error)?.name === 'AbortError' || !liveRef.current) return
-        setError('The connection dropped. Your session is still saved.')
+        setError('A conexão caiu. Sua sessão continua salva.')
         setPhase('idle')
       }
     },
@@ -193,7 +193,7 @@ export function ConversationRoom({
     onSegment: sendTurn,
     onSilentTimeout: () => {
       setPhase('idle')
-      setNotice('I did not hear anything — tap the mic when you are ready.')
+      setNotice('Não ouvi nada — toque no microfone quando estiver pronto.')
     },
   })
 
@@ -286,7 +286,7 @@ export function ConversationRoom({
       if (!response.ok) {
         // The session survives a failed report, so speaking can resume.
         liveRef.current = true
-        setError(data?.error ?? 'The report could not be generated.')
+        setError(data?.error ?? 'Não foi possível gerar o relatório.')
         setEnding(false)
         setConfirmEnd(false)
         return
@@ -295,7 +295,7 @@ export function ConversationRoom({
       router.replace(`/sessions/${conversationId}`)
     } catch {
       liveRef.current = true
-      setError('The report could not be generated. Try again.')
+      setError('Não foi possível gerar o relatório. Tente de novo.')
       setEnding(false)
     }
   }
@@ -314,7 +314,7 @@ export function ConversationRoom({
       {phase === 'ready' ? (
         <Button size="lg" onClick={begin} className="px-8">
           <Volume2 className="size-4" />
-          Start the conversation
+          Começar a conversa
         </Button>
       ) : (
         <div className="flex items-center gap-4">
@@ -322,7 +322,7 @@ export function ConversationRoom({
             type="button"
             onClick={togglePause}
             aria-pressed={paused}
-            aria-label={paused ? 'Resume the session' : 'Pause the session'}
+            aria-label={paused ? 'Retomar a sessão' : 'Pausar a sessão'}
             className={cn(
               'rounded-full border p-3 transition-colors',
               paused
@@ -337,7 +337,7 @@ export function ConversationRoom({
             type="button"
             onClick={() => (recorder.recording ? recorder.stop() : void recorder.start())}
             disabled={busy || paused || phase === 'speaking'}
-            aria-label={recorder.recording ? 'Stop recording' : 'Start speaking'}
+            aria-label={recorder.recording ? 'Parar de gravar' : 'Começar a falar'}
             className={cn(
               'relative flex size-16 items-center justify-center rounded-full transition-all duration-200 active:scale-95 disabled:opacity-40',
               recorder.recording
@@ -364,7 +364,7 @@ export function ConversationRoom({
             <button
               type="button"
               onClick={() => play(lastAssistant.id)}
-              aria-label="Replay the last thing the teacher said"
+              aria-label="Repetir a última fala do professor"
               className="rounded-full border border-line bg-surface p-3 text-muted transition-colors hover:text-ink"
             >
               <RotateCcw className="size-4" />
@@ -386,7 +386,7 @@ export function ConversationRoom({
         )}
       >
         <Headphones className="size-3.5" />
-        Hands-free {handsFree ? 'on' : 'off'}
+        Mãos livres {handsFree ? 'ativado' : 'desativado'}
       </button>
     </div>
   )
@@ -407,7 +407,7 @@ export function ConversationRoom({
             {paused && (
               <span className="inline-flex items-center gap-1 rounded-pill bg-brand-500/10 px-2 py-0.5 text-[0.6875rem] font-medium text-brand-600 dark:text-brand-400">
                 <Pause className="size-2.5" />
-                Paused
+                Pausado
               </span>
             )}
           </p>
@@ -421,7 +421,7 @@ export function ConversationRoom({
           className="shrink-0"
         >
           <PhoneOff className="size-3.5" />
-          End session
+          Encerrar sessão
         </Button>
       </header>
 
@@ -433,13 +433,13 @@ export function ConversationRoom({
             type="button"
             onClick={() => setMobileTab(tab)}
             className={cn(
-              'flex-1 py-2.5 text-[0.8125rem] font-medium capitalize transition-colors',
+              'flex-1 py-2.5 text-[0.8125rem] font-medium transition-colors',
               mobileTab === tab
                 ? 'border-b-2 border-brand-500 text-ink'
                 : 'text-muted hover:text-ink',
             )}
           >
-            {tab}
+            {tab === 'feedback' ? 'Correções' : 'Conversa'}
             {tab === 'feedback' && corrections.length > 0 && (
               <span className="ml-1.5 rounded-pill bg-surface-2 px-1.5 py-0.5 text-[0.625rem] font-semibold">
                 {corrections.length}
@@ -491,7 +491,7 @@ export function ConversationRoom({
               <button
                 type="button"
                 onClick={() => (error ? setError(null) : setNotice(null))}
-                aria-label="Dismiss"
+                aria-label="Dispensar"
                 className="shrink-0 opacity-60 transition-opacity hover:opacity-100"
               >
                 <X className="size-3.5" />
@@ -527,12 +527,12 @@ export function ConversationRoom({
         >
           <div className="w-full max-w-sm animate-fade-up rounded-card border border-line bg-surface p-6 shadow-[var(--shadow-lift)]">
             <h2 id="end-session-title" className="display text-xl text-ink">
-              {spokeOnce ? 'End this session?' : 'Leave without speaking?'}
+              {spokeOnce ? 'Encerrar esta sessão?' : 'Sair sem falar?'}
             </h2>
             <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
               {spokeOnce
-                ? 'Fluentia will score this conversation, save your mistakes and update your profile. It takes a few seconds.'
-                : 'You have not said anything yet, so there is nothing to score. The session will simply be discarded.'}
+                ? 'A Fluentia vai avaliar esta conversa, salvar seus erros e atualizar seu perfil. Leva alguns segundos.'
+                : 'Você ainda não falou nada, então não há o que avaliar. A sessão será simplesmente descartada.'}
             </p>
 
             {error && <p className="mt-4 text-[0.8125rem] font-medium text-rose">{error}</p>}
@@ -540,7 +540,7 @@ export function ConversationRoom({
             <div className="mt-6 flex flex-col gap-2">
               {spokeOnce ? (
                 <Button onClick={endSession} loading={ending}>
-                  End and see my report
+                  Encerrar e ver meu relatório
                 </Button>
               ) : (
                 <Button
@@ -554,11 +554,11 @@ export function ConversationRoom({
                     startDiscard(() => void discardConversation(conversationId))
                   }}
                 >
-                  Discard session
+                  Descartar sessão
                 </Button>
               )}
               <Button variant="ghost" onClick={() => setConfirmEnd(false)} disabled={ending}>
-                Keep talking
+                Continuar falando
               </Button>
             </div>
           </div>
@@ -568,9 +568,9 @@ export function ConversationRoom({
       {ending && (
         <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-canvas/92 backdrop-blur-sm">
           <Loader2 className="size-6 animate-spin text-brand-500" />
-          <p className="text-sm font-medium text-ink">Scoring your conversation…</p>
+          <p className="text-sm font-medium text-ink">Avaliando sua conversa…</p>
           <p className="max-w-xs text-center text-[0.8125rem] text-muted">
-            Reading the transcript, updating your mistakes and your English profile.
+            Lendo a transcrição, atualizando seus erros e seu perfil de idioma.
           </p>
         </div>
       )}

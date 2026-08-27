@@ -123,7 +123,7 @@ export function Transcript({
                   mine ? 'text-brand-600 dark:text-brand-400' : 'text-faint',
                 )}
               >
-                {mine ? 'You' : 'Teacher'}
+                {mine ? 'Você' : 'Professor'}
               </p>
 
               {/*
@@ -157,7 +157,7 @@ export function Transcript({
         {thinking && (
           <p className="flex items-center gap-2 px-1 text-[0.8125rem] text-muted">
             <Loader2 className="size-3.5 animate-spin" />
-            Transcribing and thinking…
+            Transcrevendo e pensando…
           </p>
         )}
       </div>
@@ -173,7 +173,7 @@ export function Transcript({
           )}
         >
           <ArrowDown className="size-3" />
-          Jump to latest
+          Ir para o final
         </button>
       )}
     </div>

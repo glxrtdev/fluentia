@@ -8,6 +8,7 @@ import { Flame, LogOut, MoreHorizontal, X } from 'lucide-react'
 import { Logo } from '@/components/brand/logo'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { NAV } from '@/components/shell/nav'
+import { WorkspaceSwitcher, type WorkspaceSummary } from '@/components/shell/workspace-switcher'
 import { cn, formatNumber, initials } from '@/lib/utils'
 
 export type ShellUser = {
@@ -33,9 +34,15 @@ const isActive = (pathname: string, href: string) =>
 
 export function MobileChrome({
   user,
+  workspaces,
+  activeWorkspaceId,
+  canAddWorkspace,
   signOut,
 }: {
   user: ShellUser
+  workspaces: WorkspaceSummary[]
+  activeWorkspaceId: string
+  canAddWorkspace: boolean
   signOut: () => Promise<void>
 }) {
   const pathname = usePathname()
@@ -107,7 +114,7 @@ export function MobileChrome({
           type="button"
           onClick={() => setSheetOpen(true)}
           aria-expanded={sheetOpen}
-          aria-label="More sections"
+          aria-label="Mais seções"
           className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 text-[0.6875rem] font-medium"
         >
           <span
@@ -119,7 +126,7 @@ export function MobileChrome({
             <MoreHorizontal className="size-[1.15rem]" />
           </span>
           <span className={cn('w-full truncate text-center', sheetHasActive ? 'text-ink' : 'text-faint')}>
-            More
+            Mais
           </span>
         </button>
       </nav>
@@ -128,7 +135,7 @@ export function MobileChrome({
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           <button
             type="button"
-            aria-label="Close"
+            aria-label="Fechar"
             onClick={() => setSheetOpen(false)}
             className="absolute inset-0 bg-ink/40 backdrop-blur-sm animate-fade-in"
           />
@@ -147,11 +154,19 @@ export function MobileChrome({
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                aria-label="Close"
+                aria-label="Fechar"
                 className="flex size-10 items-center justify-center rounded-control text-muted"
               >
                 <X className="size-4" />
               </button>
+            </div>
+
+            <div className="border-b border-line p-3">
+              <WorkspaceSwitcher
+                workspaces={workspaces}
+                activeId={activeWorkspaceId}
+                canAdd={canAddWorkspace}
+              />
             </div>
 
             <ul className="p-2">
@@ -185,7 +200,7 @@ export function MobileChrome({
                     className="flex w-full items-center gap-3 rounded-control px-3 py-3 text-[0.9375rem] text-muted"
                   >
                     <LogOut className="size-[1.15rem] shrink-0 text-faint" />
-                    Log out
+                    Sair
                   </button>
                 </form>
               </li>

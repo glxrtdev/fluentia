@@ -1,10 +1,11 @@
 import { z } from 'zod'
 
 import { VOICE_IDS } from '@/lib/voices'
+import { LANGUAGE_CODES } from '@/lib/languages'
 import {
   CORRECTION_CATEGORIES,
-  ENGLISH_LEVELS,
   GOAL_KINDS,
+  LEVELS,
   MAIN_GOALS,
 } from '@/lib/db/schema'
 
@@ -12,17 +13,17 @@ export const emailSchema = z
   .string()
   .trim()
   .max(254)
-  .pipe(z.email('Enter a valid email address.'))
+  .pipe(z.email('Digite um e-mail válido.'))
   .transform((v) => v.toLowerCase())
 
 export const passwordSchema = z
   .string()
-  .min(8, 'Use at least 8 characters.')
-  .max(200, 'That password is too long.')
+  .min(8, 'Use pelo menos 8 caracteres.')
+  .max(200, 'Essa senha é longa demais.')
 
 export const signUpSchema = z
   .object({
-    name: z.string().trim().min(2, 'Tell us your name.').max(60),
+    name: z.string().trim().min(2, 'Diga seu nome.').max(60),
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string(),
@@ -30,27 +31,31 @@ export const signUpSchema = z
   // Without email delivery there is no reset link, so a typo here would lock
   // the account out for good. Confirming is the only safety net.
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'The two passwords do not match.',
+    message: 'As duas senhas não conferem.',
     path: ['confirmPassword'],
   })
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1, 'Enter your current password.'),
+    currentPassword: z.string().min(1, 'Digite sua senha atual.'),
     password: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: 'The two passwords do not match.',
+    message: 'As duas senhas não conferem.',
     path: ['confirmPassword'],
   })
 
 export const signInSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, 'Enter your password.'),
+  password: z.string().min(1, 'Digite sua senha.'),
 })
 
-export const levelSchema = z.enum(ENGLISH_LEVELS)
+export const levelSchema = z.enum(LEVELS)
+/** The language being practised. */
+export const languageSchema = z.enum(LANGUAGE_CODES)
+/** The interface is written in every language the app teaches. */
+export const uiLanguageSchema = z.enum(LANGUAGE_CODES)
 export const correctionCategorySchema = z.enum(CORRECTION_CATEGORIES)
 
 export const profileSchema = z.object({
@@ -62,6 +67,11 @@ export const profileSchema = z.object({
   nativeLanguage: z.string().trim().min(2).max(10),
   interests: z.array(z.string().trim().min(1).max(40)).max(12),
 })
+
+/** Opening a language. The rest of the profile is set up afterwards. */
+export const onboardingSchema = profileSchema.extend({ language: languageSchema })
+
+export const workspaceSchema = z.object({ language: languageSchema })
 
 export const goalsSchema = z.object({
   goals: z

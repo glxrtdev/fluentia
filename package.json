@@ -16,11 +16,12 @@
     "typecheck": "tsc --noEmit --incremental false",
     "db:generate": "drizzle-kit generate",
     "db:studio": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
-    "test": "node --test tests/migration.test.mjs tests/domain.test.mjs tests/transcript-marks.test.mjs tests/dictionary.test.mjs tests/correction-diff.test.mjs",
+    "test": "node --test tests/migration.test.mjs tests/domain.test.mjs tests/transcript-marks.test.mjs tests/dictionary.test.mjs tests/correction-diff.test.mjs tests/wiktionary.test.mjs tests/cefr.test.mjs",
     "test:smoke": "node --env-file-if-exists=.env.local tests/smoke.mjs",
     "test:voice": "node --env-file-if-exists=.env.local tests/voice-loop.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "test:responsive": "node --env-file-if-exists=.env.local tests/responsive.mjs"
+    "test:responsive": "node --env-file-if-exists=.env.local tests/responsive.mjs",
+    "test:workspaces": "node --env-file-if-exists=.env.local tests/workspaces.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

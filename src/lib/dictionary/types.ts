@@ -23,7 +23,7 @@ export type DictionaryEntry = {
   synonyms: string[]
   antonyms: string[]
   /** Where the definitions came from, shown as a credit in the UI. */
-  source: 'dictionaryapi.dev'
+  source: 'dictionaryapi.dev' | 'wiktionary'
 }
 
 export type LookupFailure =

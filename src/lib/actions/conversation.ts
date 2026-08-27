@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { and, eq } from 'drizzle-orm'
 
-import { getProfile, requireUser } from '@/lib/auth/session'
+import { requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { conversations } from '@/lib/db/schema'
 import { appendMessage, buildPromptFor, nextSeq } from '@/lib/domain/conversation'
@@ -42,16 +42,18 @@ export async function startConversation(
   const custom = parsed.data.customBrief?.trim() || null
 
   if (!topic && !custom) {
-    return { errors: { form: 'Pick a topic or describe what you want to talk about.' } }
+    return { errors: { form: 'Escolha um tema ou descreva sobre o que quer falar.' } }
   }
 
-  const profile = await getProfile(user.id)
-  const level = parsed.data.level ?? profile.level
+  const workspace = await requireWorkspace(user.id)
+  const level = parsed.data.level ?? workspace.level
 
   const [conversation] = await db
     .insert(conversations)
     .values({
       userId: user.id,
+      workspaceId: workspace.id,
+      language: workspace.language,
       topicId: topic?.id ?? null,
       topicLabel: topic?.label ?? custom!.slice(0, 80),
       category: topic?.category ?? 'custom',
@@ -63,7 +65,7 @@ export async function startConversation(
 
   try {
     const ai = await getUserAi(user.id)
-    const prompt = await buildPromptFor(user.id, user.name, {
+    const prompt = await buildPromptFor(workspace.id, user.name, {
       topicId: topic?.id ?? null,
       topicLabel: topic?.label ?? custom!,
       customBrief: custom,

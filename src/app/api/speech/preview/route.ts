@@ -14,7 +14,7 @@ import { isVoiceId, VOICE_SAMPLE } from '@/lib/voices'
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser()
-  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const voice = new URL(request.url).searchParams.get('voice') ?? ''
   if (!isVoiceId(voice)) {
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const limit = rateLimit(`voice-preview:${user.id}`, 30, 5 * 60_000)
   if (!limit.ok) {
-    return Response.json({ error: 'Too many previews. Give it a moment.' }, { status: 429 })
+    return Response.json({ error: 'Prévias demais. Espere um pouco.' }, { status: 429 })
   }
 
   try {

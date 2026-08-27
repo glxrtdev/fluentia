@@ -7,10 +7,11 @@ import {
   conversationMessages,
   conversations,
   corrections,
-  profiles,
+  workspaces,
   vocabulary,
 } from '@/lib/db/schema'
-import type { EnglishLevel } from '@/lib/db/schema'
+import type { Level } from '@/lib/db/schema'
+import { DEFAULT_LANGUAGE } from '@/lib/languages'
 import { topMistakes } from '@/lib/domain/mistakes'
 import { TOPIC_BY_ID } from '@/lib/domain/topics'
 import { buildTeacherPrompt } from '@/lib/openai/prompts'
@@ -63,9 +64,9 @@ export function conversationCorrections(conversationId: string) {
     .orderBy(asc(corrections.createdAt))
 }
 
-/** Builds the system prompt for a turn from the learner's live profile. */
+/** Builds the system prompt for a turn from the learner's live workspace. */
 export async function buildPromptFor(
-  userId: string,
+  workspaceId: string,
   learnerName: string,
   conversation: {
     topicId: string | null
@@ -74,7 +75,11 @@ export async function buildPromptFor(
     level: string
   },
 ) {
-  const [profile] = await db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1)
+  const [workspace] = await db
+    .select()
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId))
+    .limit(1)
   const topic = conversation.topicId ? TOPIC_BY_ID.get(conversation.topicId) : undefined
 
   const brief =
@@ -86,19 +91,21 @@ export async function buildPromptFor(
     db
       .select({ word: vocabulary.word })
       .from(vocabulary)
-      .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning')))
+      .where(and(eq(vocabulary.workspaceId, workspaceId), eq(vocabulary.status, 'learning')))
       .orderBy(desc(vocabulary.createdAt))
       .limit(20),
-    topMistakes(userId, 6),
+    topMistakes(workspaceId, 6),
   ])
 
   return buildTeacherPrompt({
     learnerName,
-    level: conversation.level as EnglishLevel,
+    // The language being practised drives everything the teacher says.
+    language: workspace?.language ?? DEFAULT_LANGUAGE,
+    level: conversation.level as Level,
     topicLabel: conversation.topicLabel,
     topicBrief: brief,
-    mainGoal: profile?.mainGoal ?? null,
-    interests: profile?.interests ?? [],
+    mainGoal: workspace?.mainGoal ?? null,
+    interests: workspace?.interests ?? [],
     focusMistakes,
     activeVocabulary: studying.map((row) => row.word),
   })

@@ -23,10 +23,10 @@ export type SavedWord = {
 }
 
 const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'learning', label: 'Learning' },
-  { id: 'review', label: 'Review' },
-  { id: 'learned', label: 'Learned' },
+  { id: 'all', label: 'Todas' },
+  { id: 'learning', label: 'Aprendendo' },
+  { id: 'review', label: 'Revisar' },
+  { id: 'learned', label: 'Aprendidas' },
 ] as const
 
 const STATUS_TONE = {
@@ -34,6 +34,37 @@ const STATUS_TONE = {
   review: 'neutral',
   learned: 'accent',
 } as const
+
+/** The stored status is an English enum; the badge is what a person reads. */
+const STATUS_LABEL: Record<string, string> = {
+  learning: 'aprendendo',
+  review: 'revisar',
+  learned: 'aprendida',
+}
+
+/*
+ * Wiktionary tags every entry in English. Translating the common ones keeps
+ * the badge in the panel's language; anything unmapped falls through as it
+ * came, which is better than hiding it.
+ */
+const PART_OF_SPEECH: Record<string, string> = {
+  noun: 'substantivo',
+  verb: 'verbo',
+  adjective: 'adjetivo',
+  adverb: 'advérbio',
+  pronoun: 'pronome',
+  preposition: 'preposição',
+  conjunction: 'conjunção',
+  interjection: 'interjeição',
+  article: 'artigo',
+  numeral: 'numeral',
+  'proper noun': 'nome próprio',
+  particle: 'partícula',
+  determiner: 'determinante',
+  suffix: 'sufixo',
+  prefix: 'prefixo',
+  word: 'palavra',
+}
 
 export function WordList({ words }: { words: SavedWord[] }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all')
@@ -81,7 +112,7 @@ export function WordList({ words }: { words: SavedWord[] }) {
 
       {visible.length === 0 ? (
         <p className="rounded-card border border-dashed border-line px-5 py-10 text-center text-[0.8125rem] text-muted">
-          No words in this list yet.
+          Nenhuma palavra nesta lista ainda.
         </p>
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-card border border-line bg-surface">
@@ -99,8 +130,10 @@ export function WordList({ words }: { words: SavedWord[] }) {
                   {word.phonetic && (
                     <span className="font-mono text-xs text-faint">{word.phonetic}</span>
                   )}
-                  {word.partOfSpeech && <Badge>{word.partOfSpeech}</Badge>}
-                  <Badge tone={STATUS_TONE[word.status]}>{word.status}</Badge>
+                  {word.partOfSpeech && (
+                    <Badge>{PART_OF_SPEECH[word.partOfSpeech] ?? word.partOfSpeech}</Badge>
+                  )}
+                  <Badge tone={STATUS_TONE[word.status]}>{STATUS_LABEL[word.status] ?? word.status}</Badge>
                 </div>
 
                 <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
@@ -120,7 +153,7 @@ export function WordList({ words }: { words: SavedWord[] }) {
                     compact
                   />
                   <span className="text-[0.6875rem] text-faint">
-                    saved {formatRelative(word.createdAt)}
+                    salva {formatRelative(word.createdAt)}
                   </span>
                 </div>
               </div>

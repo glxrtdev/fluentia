@@ -7,13 +7,13 @@ import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { MistakeActions } from '@/components/mistakes/mistake-actions'
 import { Card } from '@/components/ui/card'
 import { Badge, EmptyState } from '@/components/ui/misc'
-import { requireUser } from '@/lib/auth/session'
+import { requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { conversations, mistakeOccurrences, mistakes } from '@/lib/db/schema'
 import { CORRECTION_CATEGORIES } from '@/lib/db/schema'
 import { CATEGORY_LABELS, cn, formatRelative } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'My mistakes' }
+export const metadata: Metadata = { title: 'Meus erros' }
 
 const STATUS_TONE = { open: 'danger', improving: 'neutral', resolved: 'accent' } as const
 
@@ -23,12 +23,13 @@ export default async function MistakesPage({
   searchParams: Promise<{ open?: string; category?: string }>
 }) {
   const user = await requireUser()
+  const workspace = await requireWorkspace(user.id)
   const { open, category } = await searchParams
 
   const rows = await db
     .select()
     .from(mistakes)
-    .where(eq(mistakes.userId, user.id))
+    .where(eq(mistakes.workspaceId, workspace.id))
     .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
 
   const filtered = category ? rows.filter((row) => row.category === category) : rows
@@ -66,23 +67,23 @@ export default async function MistakesPage({
   return (
     <PageShell>
       <PageHeader
-        eyebrow="My mistakes"
-        title="Your common mistakes"
-        description="Every correction raised during a conversation lands here and is counted. The teacher reads this list before your next session and steers towards what you keep getting wrong."
+        eyebrow="Meus erros"
+        title="Seus erros mais comuns"
+        description="Toda correção levantada numa conversa cai aqui e é contada. O professor lê esta lista antes da sua próxima sessão e conduz o papo para o que você continua errando."
       />
 
       {rows.length === 0 ? (
         <div className="mt-8">
           <EmptyState
             icon={<SpellCheck className="size-4" />}
-            title="No mistakes tracked yet"
-            description="Have a conversation and the patterns worth fixing will collect here — with counts, examples and the correct form."
+            title="Nenhum erro registrado ainda"
+            description="Converse um pouco e os padrões que valem corrigir vão se juntar aqui — com contagem, exemplos e a forma certa."
             action={
               <Link
                 href="/speak"
                 className="inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
               >
-                Start a conversation
+                Comece uma conversa
               </Link>
             }
           />
@@ -99,7 +100,7 @@ export default async function MistakesPage({
                   : 'border-line text-muted hover:text-ink',
               )}
             >
-              All
+              Todos
               <span className="ml-1.5 text-[0.6875rem] text-faint">{rows.length}</span>
             </Link>
             {byCategory.map((group) => (
@@ -120,8 +121,8 @@ export default async function MistakesPage({
           </div>
 
           <p className="mt-4 text-[0.8125rem] text-muted">
-            {rows.length} tracked {rows.length === 1 ? 'pattern' : 'patterns'} · {totalOccurrences}{' '}
-            total occurrences
+            {rows.length} {rows.length === 1 ? 'padrão' : 'padrões'} acompanhados ·{' '}
+            {totalOccurrences} {totalOccurrences === 1 ? 'ocorrência' : 'ocorrências'} no total
           </p>
 
           {/* Detail of the opened mistake */}
@@ -156,7 +157,7 @@ export default async function MistakesPage({
 
                 <Link
                   href={category ? `/mistakes?category=${category}` : '/mistakes'}
-                  aria-label="Close detail"
+                  aria-label="Fechar detalhe"
                   className="rounded-lg p-1.5 text-faint transition-colors hover:bg-surface-2 hover:text-ink"
                 >
                   <X className="size-4" />
@@ -166,7 +167,7 @@ export default async function MistakesPage({
               {occurrences.length > 0 && (
                 <div className="mt-5 border-t border-line pt-4">
                   <p className="mb-3 text-[0.75rem] font-medium text-muted">
-                    Last occurrences
+                    Últimas ocorrências
                   </p>
                   <ul className="space-y-2.5">
                     {occurrences.map((occurrence) => (
@@ -247,10 +248,10 @@ export default async function MistakesPage({
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-line text-[0.75rem] font-medium text-muted">
-                  <th className="px-4 py-3 sm:px-5">Mistake</th>
-                  <th className="px-4 py-3">Correct form</th>
-                  <th className="hidden px-4 py-3 sm:table-cell">Category</th>
-                  <th className="px-4 py-3 text-right sm:px-5">Times</th>
+                  <th className="px-4 py-3 sm:px-5">Erro</th>
+                  <th className="px-4 py-3">Forma certa</th>
+                  <th className="hidden px-4 py-3 sm:table-cell">Categoria</th>
+                  <th className="px-4 py-3 text-right sm:px-5">Vezes</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">

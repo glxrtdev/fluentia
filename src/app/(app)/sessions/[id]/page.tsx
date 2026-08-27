@@ -19,7 +19,7 @@ import {
 } from '@/lib/domain/conversation'
 import { formatDate, formatDuration, LEVEL_LABELS } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Session report' }
+export const metadata: Metadata = { title: 'Relatório da sessão' }
 
 export default async function SessionReportPage({
   params,
@@ -52,13 +52,13 @@ export default async function SessionReportPage({
         className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
       >
         <ArrowLeft className="size-3.5" />
-        All sessions
+        Todas as sessões
       </Link>
 
       <header className="mt-5 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
         <div>
           <p className="text-[0.75rem] font-medium text-muted">
-            Session report
+            Relatório da sessão
           </p>
           <h1 className="display mt-2 text-[2rem] leading-tight text-ink">
             {conversation.topicLabel}
@@ -85,10 +85,10 @@ export default async function SessionReportPage({
 
       {!report ? (
         <Card className="mt-8">
-          <p className="text-[0.9375rem] font-semibold text-ink">No report for this session</p>
+          <p className="text-[0.9375rem] font-semibold text-ink">Sem relatório para esta sessão</p>
           <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
-            The conversation was closed before it could be scored. The transcript below is still
-            yours, and any corrections it produced are already counted in your mistakes.
+            A conversa foi encerrada antes de poder ser avaliada. A transcrição abaixo continua
+            sendo sua, e as correções que ela gerou já estão contadas nos seus erros.
           </p>
         </Card>
       ) : (
@@ -97,19 +97,19 @@ export default async function SessionReportPage({
           <section className="mt-8">
             <Card>
               <div className="flex flex-wrap items-center justify-around gap-6">
-                <ScoreRing score={report.speaking} label="Speaking" size={104} />
-                <ScoreRing score={report.grammar} label="Grammar" />
-                <ScoreRing score={report.vocabulary} label="Vocabulary" />
-                <ScoreRing score={report.fluency} label="Fluency" />
+                <ScoreRing score={report.speaking} label="Fala" size={104} />
+                <ScoreRing score={report.grammar} label="Gramática" />
+                <ScoreRing score={report.vocabulary} label="Vocabulário" />
+                <ScoreRing score={report.fluency} label="Fluência" />
                 {report.pronunciation !== null ? (
-                  <ScoreRing score={report.pronunciation} label="Pronunciation" />
+                  <ScoreRing score={report.pronunciation} label="Pronúncia" />
                 ) : (
                   <div className="flex max-w-40 flex-col items-center gap-2 text-center">
                     <div className="flex size-[88px] items-center justify-center rounded-full border border-dashed border-line">
                       <span className="text-lg text-faint">—</span>
                     </div>
                     <span className="text-[0.75rem] font-medium text-muted">
-                      Pronunciation
+                      Pronúncia
                     </span>
                     <span className="text-[0.6875rem] leading-relaxed text-faint">
                       not enough evidence in this session
@@ -128,7 +128,7 @@ export default async function SessionReportPage({
             {/* Main mistakes */}
             {report.mainMistakes.length > 0 && (
               <section className="min-w-0">
-                <SectionTitle className="mb-4">Your main mistakes</SectionTitle>
+                <SectionTitle className="mb-4">Seus principais erros</SectionTitle>
                 <Card className="p-0">
                   <ol className="divide-y divide-line">
                     {report.mainMistakes.map((mistake, index) => (
@@ -152,7 +152,7 @@ export default async function SessionReportPage({
             {/* Recommendations */}
             {report.recommendations.length > 0 && (
               <section className="min-w-0">
-                <SectionTitle className="mb-4">For your next session</SectionTitle>
+                <SectionTitle className="mb-4">Para a sua próxima sessão</SectionTitle>
                 <Card>
                   <ul className="space-y-3">
                     {report.recommendations.map((recommendation) => (
@@ -168,17 +168,17 @@ export default async function SessionReportPage({
                     href="/speak"
                     className="mt-5 inline-flex items-center gap-2 text-[0.8125rem] font-semibold text-brand-600 transition-opacity hover:opacity-80 dark:text-brand-400"
                   >
-                    Start another conversation
+                    Começar outra conversa
                     <ArrowRight className="size-3.5" />
                   </Link>
                 </Card>
               </section>
             )}
 
-            {/* New words */}
+            {/* Palavras novas */}
             {report.newWords.length > 0 && (
               <section className="min-w-0">
-                <SectionTitle className="mb-4">New words</SectionTitle>
+                <SectionTitle className="mb-4">Palavras novas</SectionTitle>
                 <Card className="p-0">
                   <ul className="divide-y divide-line">
                     {report.newWords.map((entry) => (
@@ -203,7 +203,7 @@ export default async function SessionReportPage({
             {/* Expressions */}
             {report.expressions.length > 0 && (
               <section className="min-w-0">
-                <SectionTitle className="mb-4">Interesting expressions</SectionTitle>
+                <SectionTitle className="mb-4">Expressões interessantes</SectionTitle>
                 <Card className="p-0">
                   <ul className="divide-y divide-line">
                     {report.expressions.map((entry) => (
@@ -262,7 +262,7 @@ export default async function SessionReportPage({
         <SectionTitle className="mb-4">
           <span className="inline-flex items-center gap-1.5">
             <MessageSquareQuote className="size-3" />
-            Transcript
+            Transcrição
           </span>
         </SectionTitle>
 
@@ -282,7 +282,7 @@ export default async function SessionReportPage({
                     mine ? 'text-brand-600 dark:text-brand-400' : 'text-faint'
                   }`}
                 >
-                  {mine ? 'You' : 'Teacher'}
+                  {mine ? 'You' : 'Professor'}
                 </p>
                 <p
                   className={`max-w-[88%] rounded-2xl border px-3.5 py-2.5 text-[0.9375rem] leading-relaxed text-ink sm:max-w-[80%] ${

@@ -29,6 +29,9 @@ export const XP = {
 
 type PracticeInput = {
   userId: string
+  /** Which language this counted towards. Weekly goals are per workspace,
+   *  while the streak and XP it feeds are per account. */
+  workspaceId?: string | null
   kind: 'conversation' | 'vocabulary' | 'review'
   seconds?: number
   xp: number
@@ -52,6 +55,7 @@ export function registerPractice(input: PracticeInput) {
   return db.transaction(async (tx) => {
     await tx.insert(practiceSessions).values({
       userId,
+      workspaceId: input.workspaceId ?? null,
       conversationId: input.conversationId ?? null,
       kind: input.kind,
       seconds,
@@ -95,6 +99,9 @@ export function registerPractice(input: PracticeInput) {
       .set({
         xp: sql`${profiles.xp} + ${input.xp}`,
         totalPracticeSeconds: sql`${profiles.totalPracticeSeconds} + ${seconds}`,
+        // The account's own tally, across every language. The report keeps a
+        // separate one per workspace.
+        sessionsCompleted: sql`${profiles.sessionsCompleted} + ${sessionDelta}`,
         streakCurrent: current,
         streakLongest: longest,
         lastPracticeDate: day,

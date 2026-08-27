@@ -5,25 +5,27 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 
 import { Logo } from '@/components/brand/logo'
 import { Button } from '@/components/ui/button'
+import { LanguageBadge } from '@/components/ui/language-badge'
 import { completeOnboarding } from '@/lib/actions/profile'
-import { ENGLISH_LEVELS, MAIN_GOALS } from '@/lib/db/schema'
+import { LEVELS, MAIN_GOALS } from '@/lib/db/schema'
+import { getLanguage, LANGUAGES } from '@/lib/languages'
 import { cn, LEVEL_LABELS } from '@/lib/utils'
 
 const LEVEL_HINTS: Record<string, string> = {
-  beginner: 'I know some words but I freeze when I speak.',
-  elementary: 'I manage simple sentences about familiar things.',
-  intermediate: 'I hold a conversation but I make mistakes.',
-  'upper-intermediate': 'I speak comfortably; I want precision and fluency.',
-  advanced: 'I am fluent; I want nuance and natural phrasing.',
+  beginner: 'Sei algumas palavras, mas travo na hora de falar.',
+  elementary: 'Dou conta de frases simples sobre coisas familiares.',
+  intermediate: 'Mantenho uma conversa, mas cometo erros.',
+  'upper-intermediate': 'Falo com conforto; quero precisão e fluência.',
+  advanced: 'Sou fluente; quero nuance e naturalidade.',
 }
 
 const GOAL_LABELS: Record<string, { label: string; hint: string }> = {
-  travel: { label: 'Travel', hint: 'Airports, hotels, getting around' },
-  career: { label: 'Career', hint: 'Work, meetings, promotions' },
-  studies: { label: 'Studies', hint: 'University, exams, research' },
-  interviews: { label: 'Interviews', hint: 'Land the job you want' },
-  'daily-conversation': { label: 'Daily conversation', hint: 'Talk about anything, easily' },
-  fluency: { label: 'Fluency', hint: 'Speak without translating in my head' },
+  travel: { label: 'Viagem', hint: 'Aeroportos, hotéis, locomoção' },
+  career: { label: 'Carreira', hint: 'Trabalho, reuniões, promoções' },
+  studies: { label: 'Estudos', hint: 'Faculdade, provas, pesquisa' },
+  interviews: { label: 'Entrevistas', hint: 'Conquistar a vaga que você quer' },
+  'daily-conversation': { label: 'Conversa do dia a dia', hint: 'Falar de qualquer coisa, com facilidade' },
+  fluency: { label: 'Fluência', hint: 'Falar sem traduzir na cabeça' },
 }
 
 const MINUTES = [10, 20, 30, 60]
@@ -85,16 +87,26 @@ function Option({
 export function OnboardingFlow({ name }: { name: string }) {
   const [state, formAction, pending] = useActionState(completeOnboarding, undefined)
   const [step, setStep] = useState(0)
+  const [language, setLanguage] = useState<string>('en')
   const [level, setLevel] = useState<string>('intermediate')
   const [goal, setGoal] = useState<string>('fluency')
   const [minutes, setMinutes] = useState(20)
   const [interests, setInterests] = useState<string[]>([])
 
+  const chosen = getLanguage(language)
+
   const steps = [
-    { title: `Welcome, ${name.split(' ')[0]}`, subtitle: 'How would you describe your English today?' },
-    { title: 'What is this for?', subtitle: 'Your main goal shapes the topics we suggest.' },
-    { title: 'How much time?', subtitle: 'A realistic daily target beats an ambitious one.' },
-    { title: 'What do you enjoy?', subtitle: 'Optional — the teacher weaves these into conversations.' },
+    {
+      title: `Boas-vindas, ${name.split(' ')[0]}`,
+      subtitle: 'Qual idioma você quer falar? Dá para adicionar mais depois.',
+    },
+    {
+      title: `Seu ${chosen.name.pt} hoje`,
+      subtitle: 'Seja sincero — o professor se adapta de qualquer jeito.',
+    },
+    { title: 'Para que é isso?', subtitle: 'Seu objetivo principal molda os temas que sugerimos.' },
+    { title: 'Quanto tempo?', subtitle: 'Uma meta diária realista vale mais que uma ambiciosa.' },
+    { title: 'Do que você gosta?', subtitle: 'Opcional — o professor encaixa isso nas conversas.' },
   ]
 
   const toggleInterest = (value: string) =>
@@ -125,6 +137,7 @@ export function OnboardingFlow({ name }: { name: string }) {
       <form action={formAction} className="flex flex-1 flex-col">
         {/* Everything the wizard collected travels with the final submit. */}
         <input type="hidden" name="name" value={name} />
+        <input type="hidden" name="language" value={language} />
         <input type="hidden" name="level" value={level} />
         <input type="hidden" name="mainGoal" value={goal} />
         <input type="hidden" name="dailyMinutesGoal" value={minutes} />
@@ -137,8 +150,39 @@ export function OnboardingFlow({ name }: { name: string }) {
           <p className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{steps[step].subtitle}</p>
 
           <div className="mt-7 space-y-2.5">
-            {step === 0 &&
-              ENGLISH_LEVELS.map((value) => (
+            {step === 0 && (
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {LANGUAGES.map((option) => (
+                  <button
+                    key={option.code}
+                    type="button"
+                    onClick={() => setLanguage(option.code)}
+                    aria-pressed={language === option.code}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200',
+                      language === option.code
+                        ? 'border-brand-500 bg-brand-500/6'
+                        : 'border-line bg-surface hover:border-line-strong hover:bg-surface-2',
+                    )}
+                  >
+                    <LanguageBadge code={option.badge} size="lg" />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-ink">
+                        {option.name.pt}
+                      </span>
+                      {/* Shown in its own script: it is the first word of the
+                          language they are about to meet. */}
+                      <span className="mt-0.5 block truncate text-[0.8125rem] text-muted">
+                        {option.nativeName}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {step === 1 &&
+              LEVELS.map((value) => (
                 <Option
                   key={value}
                   selected={level === value}
@@ -148,7 +192,7 @@ export function OnboardingFlow({ name }: { name: string }) {
                 />
               ))}
 
-            {step === 1 &&
+            {step === 2 &&
               MAIN_GOALS.map((value) => (
                 <Option
                   key={value}
@@ -159,7 +203,7 @@ export function OnboardingFlow({ name }: { name: string }) {
                 />
               ))}
 
-            {step === 2 && (
+            {step === 3 && (
               <div className="grid grid-cols-2 gap-2.5">
                 {MINUTES.map((value) => (
                   <button
@@ -183,7 +227,7 @@ export function OnboardingFlow({ name }: { name: string }) {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div className="flex flex-wrap gap-2">
                 {INTEREST_SUGGESTIONS.map((value) => {
                   const selected = interests.includes(value)
@@ -233,7 +277,7 @@ export function OnboardingFlow({ name }: { name: string }) {
             </Button>
           ) : (
             <Button type="submit" loading={pending}>
-              Enter Fluentia
+              Entrar na Fluentia
               <ArrowRight className="size-4" />
             </Button>
           )}

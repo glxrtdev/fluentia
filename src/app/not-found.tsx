@@ -13,13 +13,13 @@ export default function NotFound() {
       </span>
 
       <div>
-        <h1 className="display text-2xl text-ink">Nothing lives here</h1>
+        <h1 className="display text-2xl text-ink">Não tem nada aqui</h1>
         <p className="mx-auto mt-2 max-w-sm text-[0.875rem] leading-relaxed text-muted">
-          The page you asked for does not exist, or it belongs to another account.
+          A página que você pediu não existe, ou pertence a outra conta.
         </p>
       </div>
 
-      <ButtonLink href="/dashboard">Back to dashboard</ButtonLink>
+      <ButtonLink href="/dashboard">Voltar ao painel</ButtonLink>
     </div>
   )
 }

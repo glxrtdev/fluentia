@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/field'
 import { startConversation } from '@/lib/actions/conversation'
-import { ENGLISH_LEVELS } from '@/lib/db/schema'
+import { LEVELS } from '@/lib/db/schema'
 import { TOPIC_CATEGORIES, TOPICS } from '@/lib/domain/topics'
 import { cn, LEVEL_LABELS } from '@/lib/utils'
 
@@ -58,7 +58,7 @@ export function TopicPicker({
           <KeyRound className="size-5" />
         </span>
         <h2 className="mt-4 text-[1.0625rem] font-semibold text-ink">
-          Add your OpenAI key to start speaking
+          Adicione sua chave da OpenAI para começar a falar
         </h2>
         <p className="mx-auto mt-2 max-w-md text-[0.875rem] leading-relaxed text-muted">
           Fluentia runs on your own OpenAI account, so transcription, replies and the teacher&rsquo;s
@@ -68,7 +68,7 @@ export function TopicPicker({
           href="/settings"
           className="mt-6 inline-flex items-center gap-2 rounded-pill bg-brand-500 px-4 py-2 text-[0.875rem] font-medium text-white transition-colors hover:bg-brand-600"
         >
-          Open AI configuration
+          Abrir configuração de IA
           <ArrowRight className="size-4" />
         </Link>
       </div>
@@ -86,7 +86,7 @@ export function TopicPicker({
         <div className="flex items-start gap-3 rounded-card border border-brand-500/25 bg-brand-500/6 p-4">
           <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-600 dark:text-brand-400" />
           <p className="text-[0.8125rem] leading-relaxed text-ink-soft">
-            <span className="font-semibold text-ink">Recommended for you. </span>
+            <span className="font-semibold text-ink">Recomendado para você. </span>
             {suggestion.reason}
           </p>
         </div>
@@ -96,8 +96,8 @@ export function TopicPicker({
       <div className="flex gap-1 rounded-pill border border-line bg-surface-2 p-1">
         {(
           [
-            { id: 'catalogue', label: 'Choose a topic' },
-            { id: 'custom', label: 'Create your own' },
+            { id: 'catalogue', label: 'Escolher um tema' },
+            { id: 'custom', label: 'Criar o seu' },
           ] as const
         ).map((option) => (
           <button
@@ -167,7 +167,7 @@ export function TopicPicker({
                     {active && <ArrowRight className="size-4 text-brand-600 dark:text-brand-400" />}
                   </span>
                   <span className="mt-1.5 block text-[0.8125rem] leading-relaxed text-muted">
-                    {topic.brief.split('.')[0]}.
+                    {topic.blurb}
                   </span>
                 </button>
               )
@@ -181,17 +181,17 @@ export function TopicPicker({
             className="flex items-center gap-2 text-sm font-semibold text-ink"
           >
             <Wand2 className="size-4 text-brand-600 dark:text-brand-400" />
-            What do you want to talk about?
+            Sobre o que você quer falar?
           </label>
           <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted">
-            Write it the way you would say it. The teacher builds the session around it.
+            Escreva do jeito que você falaria. O professor monta a sessão em cima disso.
           </p>
           <Textarea
             id="custom-topic"
             value={custom}
             onChange={(event) => setCustom(event.target.value)}
             maxLength={300}
-            placeholder="I want to talk about artificial intelligence and whether it will change my job."
+            placeholder="Quero falar sobre inteligência artificial e se ela vai mudar meu trabalho."
             className="mt-4"
           />
           <p className="mt-2 text-right text-xs text-faint">{custom.length}/300</p>
@@ -201,10 +201,10 @@ export function TopicPicker({
       {/* Level */}
       <div>
         <p className="mb-2.5 text-[0.75rem] font-medium text-muted">
-          Difficulty for this session
+          Dificuldade desta sessão
         </p>
         <div className="flex flex-wrap gap-2">
-          {ENGLISH_LEVELS.map((value) => (
+          {LEVELS.map((value) => (
             <button
               key={value}
               type="button"
@@ -235,7 +235,7 @@ export function TopicPicker({
 
       <div className="sticky bottom-4 flex justify-center lg:static lg:justify-start">
         <Button type="submit" size="lg" loading={pending} disabled={!ready}>
-          {pending ? 'Getting your teacher ready…' : 'Start speaking'}
+          {pending ? 'Preparando seu professor…' : 'Começar a falar'}
           {!pending && <ArrowRight className="size-4" />}
         </Button>
       </div>

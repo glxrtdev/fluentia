@@ -6,7 +6,7 @@ import { and, eq, ne } from 'drizzle-orm'
 
 import { hashPassword, sha256, verifyPassword } from '@/lib/crypto'
 import { db } from '@/lib/db'
-import { goals, profiles, sessions, userSettings, users } from '@/lib/db/schema'
+import { profiles, sessions, userSettings, users } from '@/lib/db/schema'
 import { rateLimit } from '@/lib/rate-limit'
 import { changePasswordSchema, fieldErrors, signInSchema, signUpSchema } from '@/lib/validation'
 
@@ -20,24 +20,21 @@ async function clientKey(prefix: string) {
   return `${prefix}:${ip}`
 }
 
-/** Sensible starting goals so the dashboard is meaningful from day one. */
+/*
+ * The account, but not yet a language.
+ *
+ * Which language someone wants is the first thing onboarding asks, and goals
+ * belong to a language rather than to a person — so both wait until there is a
+ * workspace to hang them on.
+ */
 async function seedDefaults(userId: string) {
   await db.insert(profiles).values({ userId }).onConflictDoNothing()
   await db.insert(userSettings).values({ userId }).onConflictDoNothing()
-  await db
-    .insert(goals)
-    .values([
-      { userId, kind: 'weekly_sessions' as const, target: 5 },
-      { userId, kind: 'weekly_minutes' as const, target: 100 },
-      { userId, kind: 'weekly_words' as const, target: 20 },
-      { userId, kind: 'weekly_mistakes' as const, target: 10 },
-    ])
-    .onConflictDoNothing()
 }
 
 export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const limit = rateLimit(await clientKey('signup'), 10, 60 * 60_000)
-  if (!limit.ok) return { errors: { form: 'Too many attempts. Try again later.' } }
+  if (!limit.ok) return { errors: { form: 'Tentativas demais. Tente de novo mais tarde.' } }
 
   const parsed = signUpSchema.safeParse({
     name: formData.get('name'),
@@ -53,7 +50,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     .from(users)
     .where(eq(users.email, email))
     .limit(1)
-  if (existing) return { errors: { email: 'That email is already registered.' } }
+  if (existing) return { errors: { email: 'Esse e-mail já está cadastrado.' } }
 
   const [user] = await db
     .insert(users)
@@ -67,7 +64,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const limit = rateLimit(await clientKey('signin'), 12, 15 * 60_000)
-  if (!limit.ok) return { errors: { form: 'Too many attempts. Try again in a few minutes.' } }
+  if (!limit.ok) return { errors: { form: 'Tentativas demais. Tente de novo em alguns minutos.' } }
 
   const parsed = signInSchema.safeParse({
     email: formData.get('email'),
@@ -77,7 +74,7 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
 
   const [user] = await db.select().from(users).where(eq(users.email, parsed.data.email)).limit(1)
   // Same message either way so the form never reveals which emails exist.
-  const invalid = { errors: { form: 'Email or password is incorrect.' } }
+  const invalid = { errors: { form: 'E-mail ou senha incorretos.' } }
   if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) return invalid
 
   await seedDefaults(user.id)
@@ -98,7 +95,7 @@ export async function changePassword(_prev: AuthState, formData: FormData): Prom
   const user = await requireUser()
 
   const limit = rateLimit(`password:${user.id}`, 10, 15 * 60_000)
-  if (!limit.ok) return { errors: { form: 'Too many attempts. Try again in a few minutes.' } }
+  if (!limit.ok) return { errors: { form: 'Tentativas demais. Tente de novo em alguns minutos.' } }
 
   const parsed = changePasswordSchema.safeParse({
     currentPassword: formData.get('currentPassword'),
@@ -114,7 +111,7 @@ export async function changePassword(_prev: AuthState, formData: FormData): Prom
     .limit(1)
 
   if (!row || !verifyPassword(parsed.data.currentPassword, row.passwordHash)) {
-    return { errors: { currentPassword: 'That is not your current password.' } }
+    return { errors: { currentPassword: 'Essa não é a sua senha atual.' } }
   }
 
   await db

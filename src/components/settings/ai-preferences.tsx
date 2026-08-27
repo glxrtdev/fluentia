@@ -27,38 +27,38 @@ export function AiPreferences({
   return (
     <Card>
       <CardHeader
-        title="Models and voice"
+        title="Modelos e voz"
         hint="Every model here is billed to your own OpenAI account. Cheaper ones cost less per session and usually correct less accurately."
       />
 
       <form action={formAction} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            label="Conversation"
+            label="Conversa"
             error={state?.errors?.chatModel}
-            hint="Writes the teacher's replies and finds your mistakes."
+            hint="Escreve as respostas do professor e encontra seus erros."
           >
             <Select name="chatModel" options={models.chat} defaultValue={current.chatModel ?? ''} />
           </Field>
 
           <Field
-            label="Transcription"
+            label="Transcrição"
             error={state?.errors?.sttModel}
-            hint="Turns what you say into text."
+            hint="Transforma o que você fala em texto."
           >
             <Select name="sttModel" options={models.stt} defaultValue={current.sttModel ?? ''} />
           </Field>
 
           <Field
-            label="Speech"
+            label="Fala"
             error={state?.errors?.ttsModel}
-            hint="Gives the teacher a voice."
+            hint="Dá voz ao professor."
           >
             <Select name="ttsModel" options={models.tts} defaultValue={current.ttsModel ?? ''} />
           </Field>
 
           <Field
-            label="Teacher voice"
+            label="Voz do professor"
             error={state?.errors?.voice}
             className="sm:col-span-2"
           >
@@ -80,7 +80,7 @@ export function AiPreferences({
         )}
 
         <Button type="submit" variant="secondary" loading={pending}>
-          Save preferences
+          Salvar preferências
         </Button>
       </form>
     </Card>

@@ -24,13 +24,14 @@ export type TurnResult = {
 }
 
 /** Speech to text using the user's own key. Returns the raw transcript. */
-export async function transcribe(ai: UserAi, audio: File): Promise<string> {
+export async function transcribe(ai: UserAi, audio: File, language = 'en'): Promise<string> {
   const result = await ai.client.audio.transcriptions.create({
     file: audio,
     model: ai.models.stt,
-    language: 'en',
-    // Nudges the model towards conversational English rather than song lyrics.
-    prompt: 'A student practising spoken English in a conversation with their teacher.',
+    // Naming the language stops the model guessing, which it does badly on a
+    // learner's accented speech.
+    language,
+    prompt: 'A student practising this language out loud in a conversation with their teacher.',
     response_format: 'json',
   })
 
@@ -54,7 +55,7 @@ const CATEGORIES: CorrectionCategory[] = [
 
 function normalise(raw: RawTurn): TurnResult {
   const reply = typeof raw.reply === 'string' ? raw.reply.trim() : ''
-  if (!reply) throw new AiError('The teacher did not produce a reply. Try again.')
+  if (!reply) throw new AiError('O professor não gerou uma resposta. Tente de novo.')
 
   const corrections: TurnCorrection[] = Array.isArray(raw.corrections)
     ? raw.corrections

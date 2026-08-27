@@ -106,8 +106,8 @@ export function VoicePicker({ defaultValue }: { defaultValue: string }) {
         <p className="flex items-start gap-1.5 text-xs leading-relaxed text-muted">
           <Volume2 className="mt-0.5 size-3 shrink-0" />
           <span>
-            Picking a voice plays &ldquo;{VOICE_SAMPLE}&rdquo; — one short speech call on your
-            OpenAI account, then cached.
+            Escolher uma voz toca &ldquo;{VOICE_SAMPLE}&rdquo; — uma chamada curta de fala na sua
+            conta da OpenAI, e depois fica em cache.
           </span>
         </p>
       )}

@@ -1,7 +1,10 @@
 import 'server-only'
 
+import { getLanguage } from '@/lib/languages'
+
 import { normaliseEntries } from './normalise'
 import type { DictionaryEntry, LookupResult } from './types'
+import { normaliseWiktionary, wiktionaryUrl } from './wiktionary'
 
 const ENDPOINT = 'https://api.dictionaryapi.dev/api/v2/entries/en'
 const TIMEOUT_MS = 8000
@@ -21,20 +24,33 @@ const MAX_ENTRIES = 500
 const cache = new Map<string, { expires: number; entry: DictionaryEntry }>()
 
 /**
- * The single place the app talks to dictionaryapi.dev.
+ * The single place the app looks a word up.
  *
- * Returns a tagged result rather than throwing, so callers can turn each
- * failure into the right status and message without catching.
+ * English goes to dictionaryapi.dev first, for its phonetics, recordings and
+ * synonyms, and falls back to Wiktionary when that flakes — which it does, with
+ * 502s and origin timeouts on perfectly valid words. Every other language goes
+ * straight to Wiktionary, because dictionaryapi.dev publishes those endpoints
+ * but they never answer. Returns a tagged result
+ * rather than throwing, so callers can turn each failure into the right status
+ * and message without catching.
  */
-export async function lookupWord(term: string): Promise<LookupResult> {
-  const word = term.trim().toLowerCase()
+export async function lookupWord(term: string, languageCode = 'en'): Promise<LookupResult> {
+  const language = getLanguage(languageCode)
+
+  // Only lowercase what lowercasing is meaningful for: German nouns are
+  // capitalised, and scripts without case are unaffected either way.
+  const trimmed = term.trim()
+  const word = language.code === 'en' ? trimmed.toLowerCase() : trimmed
 
   if (!word) {
-    return { ok: false, reason: 'not-found', message: 'Search for a word.' }
+    return { ok: false, reason: 'not-found', message: 'Busque uma palavra.' }
   }
 
-  const cached = cache.get(word)
+  const key = `${language.code}:${word.toLowerCase()}`
+  const cached = cache.get(key)
   if (cached && cached.expires > Date.now()) return { ok: true, entry: cached.entry }
+
+  if (!language.freeDictionary) return lookupInWiktionary(word, language.wiktionary, key)
 
   /*
    * dictionaryapi.dev is free and community-run, and it answers a noticeable
@@ -60,24 +76,77 @@ export async function lookupWord(term: string): Promise<LookupResult> {
     if (response.status === 404 || response.ok) break
   }
 
-  if (!response) {
-    return {
-      ok: false,
-      reason: 'unreachable',
-      message: 'The dictionary is not responding right now. Try again in a moment.',
-    }
-  }
+  /*
+   * dictionaryapi.dev being down used to mean no definition at all. Now that
+   * Wiktionary is wired up for the other languages, English can fall back to it
+   * too — a plainer entry beats an error message.
+   */
+  if (!response) return lookupInWiktionary(word, language.wiktionary, key)
 
   if (response.status === 404) {
     return { ok: false, reason: 'not-found', message: `No dictionary entry for "${word}".` }
   }
 
   if (!response.ok) {
-    console.warn(`dictionary: ${word} failed with upstream ${response.status}`)
+    console.warn(`dictionary: ${word} failed with upstream ${response.status}, trying wiktionary`)
+    return lookupInWiktionary(word, language.wiktionary, key)
+  }
+
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    return lookupInWiktionary(word, language.wiktionary, key)
+  }
+
+  const entry = normaliseEntries(payload)
+  if (!entry) return lookupInWiktionary(word, language.wiktionary, key)
+
+  if (cache.size >= MAX_ENTRIES) cache.clear()
+  cache.set(key, { expires: Date.now() + TTL_MS, entry })
+
+  return { ok: true, entry }
+}
+
+/**
+ * Wiktionary, for every language but English.
+ *
+ * Wikimedia's infrastructure is reliable enough that one attempt is honest —
+ * the retries above exist for a specific community API that flakes, not as a
+ * ritual.
+ */
+async function lookupInWiktionary(
+  word: string,
+  sectionCode: string,
+  key: string,
+): Promise<LookupResult> {
+  let response: Response
+  try {
+    response = await fetch(wiktionaryUrl(word), {
+      headers: {
+        accept: 'application/json',
+        // Wikimedia asks callers to identify themselves.
+        'user-agent': 'Fluentia/1.0 (language learning app)',
+      },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    })
+  } catch {
+    return {
+      ok: false,
+      reason: 'unreachable',
+      message: 'O dicionário não está respondendo agora. Tente de novo em instantes.',
+    }
+  }
+
+  if (response.status === 404) {
+    return { ok: false, reason: 'not-found', message: `No dictionary entry for "${word}".` }
+  }
+  if (!response.ok) {
+    console.warn(`wiktionary: ${word} failed with upstream ${response.status}`)
     return {
       ok: false,
       reason: 'upstream',
-      message: 'The dictionary is having a bad moment. Try again in a few seconds.',
+      message: 'O dicionário está com problemas. Tente de novo em alguns segundos.',
     }
   }
 
@@ -85,16 +154,18 @@ export async function lookupWord(term: string): Promise<LookupResult> {
   try {
     payload = await response.json()
   } catch {
-    return { ok: false, reason: 'upstream', message: 'The dictionary sent something unreadable.' }
+    return { ok: false, reason: 'upstream', message: 'O dicionário devolveu algo ilegível.' }
   }
 
-  const entry = normaliseEntries(payload)
+  const entry = normaliseWiktionary(word, sectionCode, payload)
   if (!entry) {
-    return { ok: false, reason: 'not-found', message: `No usable definition for "${word}".` }
+    // The page exists but has no section in this language — for the learner
+    // that is the same as the word not being there.
+    return { ok: false, reason: 'not-found', message: `No definition for "${word}" in this language.` }
   }
 
   if (cache.size >= MAX_ENTRIES) cache.clear()
-  cache.set(word, { expires: Date.now() + TTL_MS, entry })
+  cache.set(key, { expires: Date.now() + TTL_MS, entry })
 
   return { ok: true, entry }
 }

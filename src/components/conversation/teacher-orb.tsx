@@ -5,12 +5,12 @@ import { cn } from '@/lib/utils'
 export type Phase = 'ready' | 'idle' | 'listening' | 'thinking' | 'speaking' | 'paused'
 
 const STATUS: Record<Phase, { label: string; hint: string }> = {
-  ready: { label: 'Ready when you are', hint: 'Tap to let your teacher start talking' },
-  idle: { label: 'Your turn', hint: 'Tap the microphone and answer out loud' },
-  listening: { label: 'Listening', hint: 'Take your time — tap the square when you are done' },
-  thinking: { label: 'Thinking', hint: 'Working out what to say next' },
-  speaking: { label: 'Speaking', hint: 'Corrections appear beside you while it talks' },
-  paused: { label: 'Paused', hint: 'Nothing is being recorded — read as long as you like' },
+  ready: { label: 'Quando você quiser', hint: 'Toque para o professor começar a falar' },
+  idle: { label: 'Sua vez', hint: 'Toque no microfone e responda em voz alta' },
+  listening: { label: 'Ouvindo', hint: 'Sem pressa — toque no quadrado quando terminar' },
+  thinking: { label: 'Pensando', hint: 'Descobrindo o que dizer em seguida' },
+  speaking: { label: 'Falando', hint: 'As correções aparecem ao lado enquanto ele fala' },
+  paused: { label: 'Pausado', hint: 'Nada está sendo gravado — leia o quanto quiser' },
 }
 
 /**

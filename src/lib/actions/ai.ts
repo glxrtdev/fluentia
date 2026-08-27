@@ -59,7 +59,7 @@ export async function saveApiKey(
       .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
       .where(eq(userSettings.userId, user.id))
     revalidatePath('/settings')
-    return { ok: true, message: 'Key saved and verified.' }
+    return { ok: true, message: 'Chave salva e verificada.' }
   } catch (error) {
     await db
       .update(userSettings)
@@ -74,7 +74,7 @@ export async function testApiKey(): Promise<AiSettingsState> {
   const user = await requireUser()
 
   const limit = rateLimit(`ai-test:${user.id}`, 10, 60_000)
-  if (!limit.ok) return { errors: { form: 'Slow down a moment before testing again.' } }
+  if (!limit.ok) return { errors: { form: 'Espere um instante antes de testar de novo.' } }
 
   try {
     await probe(user.id)
@@ -83,7 +83,7 @@ export async function testApiKey(): Promise<AiSettingsState> {
       .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
       .where(eq(userSettings.userId, user.id))
     revalidatePath('/settings')
-    return { ok: true, message: 'Connection healthy.' }
+    return { ok: true, message: 'Conexão saudável.' }
   } catch (error) {
     const aiError = toAiError(error)
     if (aiError.status === 401) {
@@ -112,7 +112,7 @@ export async function removeApiKey(): Promise<AiSettingsState> {
     .where(eq(userSettings.userId, user.id))
 
   revalidatePath('/settings')
-  return { ok: true, message: 'Key removed.' }
+  return { ok: true, message: 'Chave removida.' }
 }
 
 export async function updateAiPreferences(
@@ -135,7 +135,7 @@ export async function updateAiPreferences(
     .where(eq(userSettings.userId, user.id))
 
   revalidatePath('/settings')
-  return { ok: true, message: 'Preferences saved.' }
+  return { ok: true, message: 'Preferências salvas.' }
 }
 
 export async function setTheme(theme: 'system' | 'light' | 'dark') {

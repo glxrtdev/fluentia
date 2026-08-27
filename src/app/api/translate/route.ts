@@ -1,8 +1,9 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { getCurrentUser, getProfile } from '@/lib/auth/session'
+import { getActiveWorkspace, getCurrentUser, getProfile } from '@/lib/auth/session'
 import { db } from '@/lib/db'
+import { getLanguage } from '@/lib/languages'
 import { vocabulary } from '@/lib/db/schema'
 import { getUserAi, toAiError } from '@/lib/openai/client'
 import { rateLimit } from '@/lib/rate-limit'
@@ -28,22 +29,26 @@ const bodySchema = z.object({
  */
 export async function POST(request: Request) {
   const user = await getCurrentUser()
-  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const limit = rateLimit(`translate:${user.id}`, 40, 60_000)
   if (!limit.ok) return Response.json({ error: 'Too many translations.' }, { status: 429 })
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return Response.json({ error: 'Invalid request.' }, { status: 400 })
+  if (!parsed.success) return Response.json({ error: 'Requisição inválida.' }, { status: 400 })
 
   const profile = await getProfile(user.id)
   const language = LANGUAGE_NAMES[profile.nativeLanguage]
   if (!language) {
     return Response.json(
-      { error: 'Set a native language in Settings to use translations.' },
+      { error: 'Defina um idioma nativo nas Configurações para usar traduções.' },
       { status: 400 },
     )
   }
+
+  // The word belongs to whichever language the open workspace practises.
+  const workspace = await getActiveWorkspace(user.id)
+  const sourceLanguage = getLanguage(workspace?.language)
 
   try {
     const ai = await getUserAi(user.id)
@@ -54,7 +59,7 @@ export async function POST(request: Request) {
       messages: [
         {
           role: 'system',
-          content: `Translate English vocabulary into ${language} for a language learner. Reply with the translation only: at most four words, no quotes, no explanation, no English.`,
+          content: `Translate ${sourceLanguage.name.en} vocabulary into ${language} for a language learner. Reply with the translation only: at most four words, no quotes, no explanation, nothing else.`,
         },
         {
           role: 'user',
@@ -64,7 +69,7 @@ export async function POST(request: Request) {
     })
 
     const translation = (completion.choices[0]?.message?.content ?? '').trim().slice(0, 200)
-    if (!translation) return Response.json({ error: 'No translation came back.' }, { status: 502 })
+    if (!translation) return Response.json({ error: 'Nenhuma tradução voltou.' }, { status: 502 })
 
     // Persist it when the word is already in the learner's own vocabulary.
     if (parsed.data.vocabularyId) {

@@ -16,11 +16,11 @@ import { dictionaryQuerySchema } from '@/lib/validation'
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser()
-  if (!user) return Response.json({ error: 'Not authenticated' }, { status: 401 })
+  if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const parsed = dictionaryQuerySchema.safeParse(new URL(request.url).searchParams.get('word') ?? '')
   if (!parsed.success) {
-    return Response.json({ error: 'Ask for a single English word.' }, { status: 400 })
+    return Response.json({ error: 'Peça uma única palavra.' }, { status: 400 })
   }
 
   const limit = rateLimit(`say:${user.id}`, 60, 5 * 60_000)

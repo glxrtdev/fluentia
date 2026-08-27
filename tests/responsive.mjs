@@ -49,6 +49,7 @@ const record = (name, ok, detail = '') => {
 async function seed() {
   const id = randomUUID()
   const token = randomBytes(32).toString('base64url')
+  const workspaceId = randomUUID()
   const conversationId = randomUUID()
 
   await sql`
@@ -56,15 +57,23 @@ async function seed() {
     values (${id}, ${`viewport-${Date.now()}@fluentia.test`}, ${'Responsive Tester ' + LONG}, 'x')
   `
   await sql`
-    insert into profiles (user_id, level, onboarded_at, main_goal, estimated_cefr, xp,
-                          streak_current, streak_longest, total_practice_seconds,
-                          sessions_completed, strengths, weaknesses, interests)
-    values (${id}, 'upper-intermediate', now(), 'career', 'B2', 2450, 12, 30, 16320, 37,
-            ${sql.json(['Vocabulary', 'Listening'])}, ${sql.json(['Prepositions', 'Verb tenses'])},
-            ${sql.json(['technology', 'football'])})
+    insert into profiles (user_id, onboarded_at, xp, streak_current, streak_longest,
+                          total_practice_seconds, sessions_completed)
+    values (${id}, now(), 2450, 12, 30, 16320, 37)
   `
-  await sql`insert into user_settings (user_id, openai_key_hint, openai_key_status)
-            values (${id}, '1234', 'ok')`
+
+  // Learning hangs off a workspace: the long word travels in its interests so
+  // the settings form has something awkward to wrap.
+  await sql`
+    insert into workspaces (id, user_id, language, level, main_goal, estimated_cefr,
+                            total_practice_seconds, sessions_completed,
+                            strengths, weaknesses, interests)
+    values (${workspaceId}, ${id}, 'en', 'upper-intermediate', 'career', 'B2', 16320, 37,
+            ${sql.json(['Vocabulary', 'Listening'])}, ${sql.json(['Prepositions', 'Verb tenses'])},
+            ${sql.json(['technology', LONG])})
+  `
+  await sql`insert into user_settings (user_id, active_workspace_id, openai_key_hint, openai_key_status)
+            values (${id}, ${workspaceId}, '1234', 'ok')`
   await sql`
     insert into sessions (id, user_id, expires_at)
     values (${createHash('sha256').update(token).digest('hex')}, ${id}, now() + interval '1 hour')
@@ -76,14 +85,14 @@ async function seed() {
     ['weekly_words', 20],
     ['weekly_mistakes', 10],
   ]) {
-    await sql`insert into goals (id, user_id, kind, target)
-              values (${randomUUID()}, ${id}, ${kind}, ${target})`
+    await sql`insert into goals (id, user_id, workspace_id, kind, target)
+              values (${randomUUID()}, ${id}, ${workspaceId}, ${kind}, ${target})`
   }
 
   await sql`
-    insert into conversations (id, user_id, topic_id, topic_label, category, level, status,
+    insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status,
                                duration_seconds, user_turns, ended_at)
-    values (${conversationId}, ${id}, 'job-interview', 'Job interview', 'career',
+    values (${conversationId}, ${id}, ${workspaceId}, 'en', 'job-interview', 'Job interview', 'career',
             'upper-intermediate', 'completed', 620, 6, now())
   `
 
@@ -105,10 +114,10 @@ async function seed() {
   `
 
   await sql`
-    insert into session_reports (id, conversation_id, user_id, speaking, grammar, vocabulary,
+    insert into session_reports (id, conversation_id, user_id, workspace_id, speaking, grammar, vocabulary,
                                  fluency, pronunciation, estimated_level, summary, main_mistakes,
                                  new_words, expressions, recommendations, words_spoken)
-    values (${randomUUID()}, ${conversationId}, ${id}, 78, 72, 84, 76, null, 'B2',
+    values (${randomUUID()}, ${conversationId}, ${id}, ${workspaceId}, 78, 72, 84, 76, null, 'B2',
             ${`You kept the conversation going well. Watch your tenses, and mind ${LONG}.`},
             ${sql.json([{ label: 'Past tense', detail: 'You said "I go" about yesterday.' }])},
             ${sql.json([{ word: LONG, meaning: 'A deliberately long word for layout testing.' }])},
@@ -122,16 +131,16 @@ async function seed() {
     ['naturalness', `I am agree with ${LONG}`, `I agree with ${LONG}`, 4],
   ]) {
     await sql`
-      insert into mistakes (id, user_id, category, signature, original, corrected, explanation, occurrences)
-      values (${randomUUID()}, ${id}, ${category}, ${`${category}:${original}>${corrected}`},
+      insert into mistakes (id, user_id, workspace_id, category, signature, original, corrected, explanation, occurrences)
+      values (${randomUUID()}, ${id}, ${workspaceId}, ${category}, ${`${category}:${original}>${corrected}`},
               ${original}, ${corrected}, ${`In English we say "${corrected}".`}, ${count})
     `
   }
 
   for (const word of ['entrepreneurship', LONG, 'deadline']) {
     await sql`
-      insert into vocabulary (id, user_id, word, part_of_speech, phonetic, definition, example, status)
-      values (${randomUUID()}, ${id}, ${word}, 'noun', '/ˌɒn.trə.prə.nɜːˈʃɪp/',
+      insert into vocabulary (id, user_id, workspace_id, word, part_of_speech, phonetic, definition, example, status)
+      values (${randomUUID()}, ${id}, ${workspaceId}, ${word}, 'noun', '/ˌɒn.trə.prə.nɜːˈʃɪp/',
               ${`A definition long enough to wrap on a narrow screen, mentioning ${LONG} twice: ${LONG}.`},
               ${`An example sentence using ${word} in context.`}, 'learning')
     `
@@ -139,9 +148,9 @@ async function seed() {
 
   const liveId = randomUUID()
   await sql`
-    insert into conversations (id, user_id, topic_id, topic_label, category, level, status,
+    insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status,
                                duration_seconds, user_turns)
-    values (${liveId}, ${id}, null, ${`Negotiating ${LONG} at work`}, 'custom',
+    values (${liveId}, ${id}, ${workspaceId}, 'en', null, ${`Negotiating ${LONG} at work`}, 'custom',
             'upper-intermediate', 'active', 95, 2)
   `
 

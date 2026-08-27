@@ -13,24 +13,24 @@ export function MistakeActions({ id, status }: { id: string; status: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p className="mr-1 text-[0.8125rem] text-muted">How is this one going?</p>
+      <p className="mr-1 text-[0.8125rem] text-muted">Como está indo este?</p>
 
       {status !== 'improving' && (
         <Button size="sm" variant="secondary" loading={pending} onClick={() => set('improving')}>
           <CircleDot className="size-3.5" />
-          Getting better
+          Melhorando
         </Button>
       )}
       {status !== 'resolved' && (
         <Button size="sm" loading={pending} onClick={() => set('resolved')}>
           <Check className="size-3.5" />
-          I have got this
+          Já domino
         </Button>
       )}
       {status !== 'open' && (
         <Button size="sm" variant="ghost" loading={pending} onClick={() => set('open')}>
           <RotateCcw className="size-3.5" />
-          Still a problem
+          Ainda é um problema
         </Button>
       )}
     </div>

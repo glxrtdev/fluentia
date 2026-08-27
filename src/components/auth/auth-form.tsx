@@ -18,12 +18,12 @@ export function AuthForm({ mode, action }: { mode: 'login' | 'signup'; action: A
   return (
     <div>
       <h1 className="display text-[2rem] leading-tight text-ink">
-        {isSignup ? 'Create your account' : 'Welcome back'}
+        {isSignup ? 'Crie sua conta' : 'Bem-vindo de volta'}
       </h1>
       <p className="mt-2 text-[0.875rem] leading-relaxed text-muted">
         {isSignup
-          ? 'Two fields and a password. Your OpenAI key comes later, in settings.'
-          : 'Pick up where your last conversation stopped.'}
+          ? 'Dois campos e uma senha. A chave da OpenAI vem depois, nas configurações.'
+          : 'Continue de onde sua última conversa parou.'}
       </p>
 
       <form action={formAction} className="mt-8 space-y-4" noValidate>
@@ -38,25 +38,25 @@ export function AuthForm({ mode, action }: { mode: 'login' | 'signup'; action: A
         )}
 
         {isSignup && (
-          <Field label="Name" error={errors.name}>
-            <Input name="name" autoComplete="name" placeholder="Your name" required />
+          <Field label="Nome" error={errors.name}>
+            <Input name="name" autoComplete="name" placeholder="Seu nome" required />
           </Field>
         )}
 
-        <Field label="Email" error={errors.email}>
+        <Field label="E-mail" error={errors.email}>
           <Input
             name="email"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder="voce@exemplo.com"
             required
           />
         </Field>
 
         <Field
-          label="Password"
+          label="Senha"
           error={errors.password}
-          hint={isSignup ? 'At least 8 characters.' : undefined}
+          hint={isSignup ? 'Pelo menos 8 caracteres.' : undefined}
         >
           <Input
             name="password"
@@ -69,7 +69,7 @@ export function AuthForm({ mode, action }: { mode: 'login' | 'signup'; action: A
 
         {/* There is no reset email, so a typo here has to be caught now. */}
         {isSignup && (
-          <Field label="Confirm password" error={errors.confirmPassword}>
+          <Field label="Confirme a senha" error={errors.confirmPassword}>
             <Input
               name="confirmPassword"
               type="password"
@@ -81,17 +81,17 @@ export function AuthForm({ mode, action }: { mode: 'login' | 'signup'; action: A
         )}
 
         <Button type="submit" size="lg" loading={pending} className="w-full">
-          {isSignup ? 'Create account' : 'Log in'}
+          {isSignup ? 'Criar conta' : 'Entrar'}
         </Button>
       </form>
 
       <p className="mt-6 text-center text-[0.8125rem] text-muted">
-        {isSignup ? 'Already have an account? ' : 'New to Fluentia? '}
+        {isSignup ? 'Já tem uma conta? ' : 'Novo na Fluentia? '}
         <Link
           href={isSignup ? '/login' : '/signup'}
           className="font-semibold text-brand-600 transition-opacity hover:opacity-80 dark:text-brand-400"
         >
-          {isSignup ? 'Log in' : 'Create an account'}
+          {isSignup ? 'Entrar' : 'Criar uma conta'}
         </Link>
       </p>
     </div>

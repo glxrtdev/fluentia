@@ -7,32 +7,32 @@ import { GoalsForm } from '@/components/goals/goals-form'
 import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { Card } from '@/components/ui/card'
 import { Progress, Stat } from '@/components/ui/misc'
-import { getProfile, requireUser } from '@/lib/auth/session'
+import { getProfile, requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { goals, streaks } from '@/lib/db/schema'
 import { weeklyProgress } from '@/lib/domain/recommendations'
 import { and } from 'drizzle-orm'
 import { formatDuration, localDay, startOfWeek } from '@/lib/utils'
 
-export const metadata: Metadata = { title: 'Goals' }
+export const metadata: Metadata = { title: 'Metas' }
 
 const MAIN_GOAL_LABELS: Record<string, string> = {
-  travel: 'Travel',
-  career: 'Career',
-  studies: 'Studies',
-  interviews: 'Interviews',
-  'daily-conversation': 'Daily conversation',
-  fluency: 'Fluency',
+  travel: 'Viagem',
+  career: 'Carreira',
+  studies: 'Estudos',
+  interviews: 'Entrevistas',
+  'daily-conversation': 'Conversa do dia a dia',
+  fluency: 'Fluência',
 }
 
 export default async function GoalsPage() {
   const user = await requireUser()
-  const profile = await getProfile(user.id)
+  const [profile, workspace] = await Promise.all([getProfile(user.id), requireWorkspace(user.id)])
 
   const today = localDay()
   const [progress, rows, todayRows] = await Promise.all([
-    weeklyProgress(user.id, startOfWeek(today)),
-    db.select().from(goals).where(eq(goals.userId, user.id)),
+    weeklyProgress(workspace.id, startOfWeek(today)),
+    db.select().from(goals).where(eq(goals.workspaceId, workspace.id)),
     db
       .select({ seconds: streaks.seconds })
       .from(streaks)
@@ -44,14 +44,14 @@ export default async function GoalsPage() {
   const todayRow = todayRows[0]
 
   const todaySeconds = todayRow?.seconds ?? 0
-  const dailyTargetSeconds = profile.dailyMinutesGoal * 60
+  const dailyTargetSeconds = workspace.dailyMinutesGoal * 60
 
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Goals"
-        title="What you are aiming at"
-        description="A goal you can actually hit beats an ambitious one you quietly abandon."
+        eyebrow="Metas"
+        title="O que você está mirando"
+        description="Uma meta que você consegue bater vale mais que uma ambiciosa que você abandona em silêncio."
       />
 
       {/* Today */}
@@ -60,22 +60,22 @@ export default async function GoalsPage() {
           <div>
             <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-muted">
               <Timer className="size-3" />
-              Today
+              Hoje
             </p>
             <p className="display mt-2 text-3xl text-ink">
               {formatDuration(todaySeconds)}
-              <span className="ml-2 text-base text-muted">of {profile.dailyMinutesGoal} min</span>
+              <span className="ml-2 text-base text-muted">of {workspace.dailyMinutesGoal} min</span>
             </p>
           </div>
 
           <div className="flex items-center gap-8">
             <Stat
-              label="Streak"
+              label="Sequência"
               value={profile.streakCurrent}
-              suffix="days"
+              suffix="dias"
               icon={<Flame className="size-3 text-brand-600 dark:text-brand-400" />}
             />
-            <Stat label="Best" value={profile.streakLongest} suffix="days" />
+            <Stat label="Melhor" value={profile.streakLongest} suffix="dias" />
           </div>
         </div>
 
@@ -83,7 +83,7 @@ export default async function GoalsPage() {
           value={todaySeconds}
           total={dailyTargetSeconds}
           className="mt-5"
-          label="Daily practice"
+          label="Prática diária"
         />
       </Card>
 
@@ -93,13 +93,13 @@ export default async function GoalsPage() {
           <div>
             <p className="flex items-center gap-1.5 text-[0.75rem] font-medium text-muted">
               <Target className="size-3" />
-              Main goal
+              Objetivo principal
             </p>
             <p className="mt-2 text-[1.0625rem] font-semibold text-ink">
-              {profile.mainGoal ? MAIN_GOAL_LABELS[profile.mainGoal] : 'Not set yet'}
+              {workspace.mainGoal ? MAIN_GOAL_LABELS[workspace.mainGoal] : 'Ainda não definido'}
             </p>
             <p className="mt-1 text-[0.8125rem] text-muted">
-              Shapes which topics Fluentia recommends and how the teacher frames questions.
+              Molda quais temas a Fluentia recomenda e como o professor formula as perguntas.
             </p>
           </div>
 
@@ -108,7 +108,7 @@ export default async function GoalsPage() {
             className="inline-flex items-center gap-2 rounded-pill border border-line px-4 py-2 text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
           >
             <Settings2 className="size-3.5" />
-            Change
+            Alterar
           </Link>
         </div>
       </Card>

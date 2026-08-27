@@ -77,7 +77,7 @@ export function LearningPreferences({
   return (
     <Card>
       <CardHeader
-        title="Learning preferences"
+        title="Preferências de aprendizado"
         hint="These shape every conversation: how hard the teacher speaks, which topics get suggested and what your weekly targets mean."
       />
 
@@ -85,11 +85,11 @@ export function LearningPreferences({
         <input type="hidden" name="autoAdaptLevel" value={String(autoAdapt)} />
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Display name" error={state?.errors?.name}>
+          <Field label="Nome de exibição" error={state?.errors?.name}>
             <Input name="name" defaultValue={name} required />
           </Field>
 
-          <Field label="Native language" error={state?.errors?.nativeLanguage}>
+          <Field label="Idioma nativo" error={state?.errors?.nativeLanguage}>
             <Select
               name="nativeLanguage"
               defaultValue={profile.nativeLanguage}
@@ -97,15 +97,15 @@ export function LearningPreferences({
             />
           </Field>
 
-          <Field label="English level" error={state?.errors?.level}>
+          <Field label="Seu nível" error={state?.errors?.level}>
             <Select name="level" defaultValue={profile.level} options={LEVEL_OPTIONS} />
           </Field>
 
-          <Field label="Main goal" error={state?.errors?.mainGoal}>
+          <Field label="Objetivo principal" error={state?.errors?.mainGoal}>
             <Select name='mainGoal' defaultValue={profile.mainGoal ?? ''} options={GOAL_OPTIONS} />
           </Field>
 
-          <Field label="Daily practice" error={state?.errors?.dailyMinutesGoal}>
+          <Field label="Prática diária" error={state?.errors?.dailyMinutesGoal}>
             <Select
               name="dailyMinutesGoal"
               defaultValue={String(profile.dailyMinutesGoal)}
@@ -114,15 +114,15 @@ export function LearningPreferences({
           </Field>
 
           <Field
-            label="Interests"
-            hint="Comma separated. The teacher uses them for examples."
+            label="Interesses"
+            hint="Separados por vírgula. O professor usa isso nos exemplos."
             error={state?.errors?.interests}
           >
             <Input
               name="interests"
               value={interests}
               onChange={(e) => setInterests(e.target.value)}
-              placeholder="startups, football, cooking"
+              placeholder="startups, futebol, culinária"
             />
           </Field>
         </div>
@@ -147,10 +147,10 @@ export function LearningPreferences({
             />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-ink">Adapt difficulty automatically</span>
+            <span className="block text-sm font-semibold text-ink">Ajustar a dificuldade automaticamente</span>
             <span className="mt-0.5 block text-[0.8125rem] leading-relaxed text-muted">
-              After each session Fluentia nudges your level up or down based on how you actually
-              spoke, instead of waiting for you to change it.
+              Depois de cada sessão a Fluentia ajusta seu nível para cima ou para baixo conforme
+              você realmente falou, em vez de esperar que você mude.
             </span>
           </span>
         </button>
@@ -158,12 +158,12 @@ export function LearningPreferences({
         {state?.ok && (
           <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-brand-600 dark:text-brand-400">
             <CheckCircle2 className="size-4" />
-            Saved.
+            Salvo.
           </p>
         )}
 
         <Button type="submit" variant="secondary" loading={pending}>
-          Save preferences
+          Salvar preferências
         </Button>
       </form>
     </Card>

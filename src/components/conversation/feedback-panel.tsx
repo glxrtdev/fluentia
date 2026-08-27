@@ -102,7 +102,7 @@ export function CorrectionCard({
         <p className="mt-3 flex gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-[0.8125rem] leading-relaxed text-ink-soft">
           <Sparkles className="mt-0.5 size-3.5 shrink-0 text-brand-500" />
           <span>
-            <span className="font-semibold text-ink">Better: </span>
+            <span className="font-semibold text-ink">Melhor: </span>
             {correction.betterSentence}
           </span>
         </p>
@@ -132,7 +132,7 @@ export function FeedbackPanel({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-5 py-4">
         <h2 className="text-[0.75rem] font-medium text-muted">
-          Feedback
+          Correções
         </h2>
         {corrections.length > 0 && (
           <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-[0.6875rem] font-semibold text-muted">
@@ -145,10 +145,10 @@ export function FeedbackPanel({
         {corrections.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-4 text-center">
             <Lightbulb className="size-5 text-faint" />
-            <p className="mt-3 text-[0.8125rem] font-medium text-ink">Nothing to fix yet</p>
+            <p className="mt-3 text-[0.8125rem] font-medium text-ink">Nada a corrigir ainda</p>
             <p className="mt-1.5 text-xs leading-relaxed text-muted">
-              Corrections show up here as you speak, and the words they refer to get underlined in
-              your own sentence above.
+              As correções aparecem aqui enquanto você fala, e as palavras a que elas se referem
+              ficam sublinhadas na sua própria frase acima.
             </p>
           </div>
         ) : (

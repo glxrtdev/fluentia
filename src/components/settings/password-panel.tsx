@@ -15,8 +15,8 @@ export function PasswordPanel() {
   return (
     <Card>
       <CardHeader
-        title="Password"
-        hint="Changing it signs out every other device. This one stays signed in."
+        title="Senha"
+        hint="Trocar a senha desconecta todos os outros aparelhos. Este continua conectado."
       />
 
       <form
@@ -27,7 +27,7 @@ export function PasswordPanel() {
         }}
         className="space-y-4"
       >
-        <Field label="Current password" error={state?.errors?.currentPassword}>
+        <Field label="Senha atual" error={state?.errors?.currentPassword}>
           <Input
             name="currentPassword"
             type="password"
@@ -38,7 +38,7 @@ export function PasswordPanel() {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="New password" error={state?.errors?.password} hint="At least 8 characters.">
+          <Field label="Nova senha" error={state?.errors?.password} hint="Pelo menos 8 caracteres.">
             <Input
               name="password"
               type="password"
@@ -48,7 +48,7 @@ export function PasswordPanel() {
             />
           </Field>
 
-          <Field label="Confirm new password" error={state?.errors?.confirmPassword}>
+          <Field label="Confirme a nova senha" error={state?.errors?.confirmPassword}>
             <Input
               name="confirmPassword"
               type="password"
@@ -68,18 +68,18 @@ export function PasswordPanel() {
         {state?.ok && (
           <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-brand-600 dark:text-brand-400">
             <CheckCircle2 className="size-4" />
-            Password updated.
+            Senha atualizada.
           </p>
         )}
 
         <Button type="submit" variant="secondary" loading={pending}>
-          Change password
+          Trocar senha
         </Button>
       </form>
 
       <p className="mt-6 border-t border-line pt-5 text-xs leading-relaxed text-muted">
-        Locked out of an account? Fluentia does not send email, so recovery runs from the machine
-        that owns the database:{' '}
+        Perdeu o acesso? A Fluentia não envia e-mail, então a recuperação é feita pela máquina
+        dona do banco:{' '}
         <code className="font-mono text-ink">npm run set-password -- you@example.com</code>
       </p>
     </Card>

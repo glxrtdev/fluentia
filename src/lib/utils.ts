@@ -19,10 +19,10 @@ export function formatClock(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-export const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value)
+export const formatNumber = (value: number) => new Intl.NumberFormat('pt-BR').format(value)
 
 export function formatDate(value: Date | number | string) {
-  return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+  return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(value),
   )
 }
@@ -39,27 +39,27 @@ export function formatRelative(value: Date | number | string) {
     ['month', 2_629_800_000],
     ['year', 31_557_600_000],
   ]
-  const rtf = new Intl.RelativeTimeFormat('en-US', { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' })
   let chosen = units[0]
   for (const unit of units) if (Math.abs(diff) >= unit[1]) chosen = unit
   return rtf.format(-Math.round(diff / chosen[1]), chosen[0])
 }
 
 export const LEVEL_LABELS: Record<string, string> = {
-  beginner: 'Beginner',
-  elementary: 'Elementary',
-  intermediate: 'Intermediate',
-  'upper-intermediate': 'Upper Intermediate',
-  advanced: 'Advanced',
+  beginner: 'Iniciante',
+  elementary: 'Básico',
+  intermediate: 'Intermediário',
+  'upper-intermediate': 'Intermediário avançado',
+  advanced: 'Avançado',
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {
-  grammar: 'Grammar',
-  vocabulary: 'Vocabulary',
-  prepositions: 'Prepositions',
-  pronunciation: 'Pronunciation',
-  'sentence-structure': 'Sentence structure',
-  naturalness: 'Naturalness',
+  grammar: 'Gramática',
+  vocabulary: 'Vocabulário',
+  prepositions: 'Preposições',
+  pronunciation: 'Pronúncia',
+  'sentence-structure': 'Estrutura da frase',
+  naturalness: 'Naturalidade',
 }
 
 /**

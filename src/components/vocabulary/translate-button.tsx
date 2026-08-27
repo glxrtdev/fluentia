@@ -70,7 +70,7 @@ export function TranslateButton({
         )}
       >
         {loading ? <Loader2 className="size-3 animate-spin" /> : <Languages className="size-3" />}
-        Translate
+        Traduzir
       </button>
       {error && <span className="text-[0.6875rem] font-medium text-rose">{error}</span>}
     </span>

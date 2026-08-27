@@ -34,6 +34,7 @@ export type RecordableCorrection = {
  */
 export async function recordMistakes(
   userId: string,
+  workspaceId: string,
   conversationId: string | null,
   items: RecordableCorrection[],
 ) {
@@ -46,6 +47,7 @@ export async function recordMistakes(
       .insert(mistakes)
       .values({
         userId,
+        workspaceId,
         category: item.category,
         signature,
         original: item.original,
@@ -56,7 +58,7 @@ export async function recordMistakes(
         lastSeenAt: now,
       })
       .onConflictDoUpdate({
-        target: [mistakes.userId, mistakes.signature],
+        target: [mistakes.workspaceId, mistakes.signature],
         set: {
           occurrences: sql`${mistakes.occurrences} + 1`,
           lastSeenAt: now,
@@ -77,7 +79,7 @@ export async function recordMistakes(
 }
 
 /** The mistakes the teacher should keep an eye on, most frequent first. */
-export function topMistakes(userId: string, limit = 6) {
+export function topMistakes(workspaceId: string, limit = 6) {
   return db
     .select({
       original: mistakes.original,
@@ -86,7 +88,7 @@ export function topMistakes(userId: string, limit = 6) {
       occurrences: mistakes.occurrences,
     })
     .from(mistakes)
-    .where(and(eq(mistakes.userId, userId), eq(mistakes.status, 'open')))
+    .where(and(eq(mistakes.workspaceId, workspaceId), eq(mistakes.status, 'open')))
     .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
     .limit(limit)
 }

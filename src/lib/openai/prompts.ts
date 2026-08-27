@@ -1,11 +1,14 @@
 import 'server-only'
 
-import type { EnglishLevel } from '@/lib/db/schema'
+import type { Level } from '@/lib/db/schema'
+import { getLanguage, type LanguageCode } from '@/lib/languages'
 import { LEVEL_LABELS } from '@/lib/utils'
 
 export type TeacherContext = {
   learnerName: string
-  level: EnglishLevel
+  /** The language being practised. Everything below adapts to it. */
+  language: LanguageCode | string
+  level: Level
   topicLabel: string
   topicBrief: string
   mainGoal: string | null
@@ -16,11 +19,11 @@ export type TeacherContext = {
   activeVocabulary: string[]
 }
 
-const LEVEL_GUIDANCE: Record<EnglishLevel, string> = {
+const LEVEL_GUIDANCE: Record<Level, string> = {
   beginner:
-    'Use very short sentences, the present simple, and the 500 most common words. One question at a time. Speak slowly and warmly. Never use idioms.',
+    'Use very short sentences, the simplest tense the language has, and the 500 most common words. One question at a time. Speak slowly and warmly. Never use idioms.',
   elementary:
-    'Use simple sentences and common vocabulary. Present and past simple. Rephrase instead of explaining grammar. One question at a time.',
+    'Use simple sentences and common vocabulary, in the two or three most basic tenses. Rephrase instead of explaining grammar. One question at a time.',
   intermediate:
     'Speak naturally at a moderate pace. Mix tenses. Introduce a slightly more precise word now and then, and use it in context so it is guessable.',
   'upper-intermediate':
@@ -39,7 +42,15 @@ export function buildTeacherPrompt(ctx: TeacherContext): string {
     .map((m) => `- "${m.original}" should be "${m.corrected}" (${m.category}, ${m.occurrences}x)`)
     .join('\n')
 
-  return `You are the English teacher inside Fluentia, having a live spoken conversation with ${ctx.learnerName}.
+  const language = getLanguage(ctx.language)
+
+  return `You are the ${language.name.en} teacher inside Fluentia, having a live spoken conversation with ${ctx.learnerName}.
+
+## The language
+You teach ${language.name.en} (${language.nativeName}) and you speak it with ${ctx.learnerName} the entire time.
+- Every word of your spoken reply is in ${language.name.en}. Never switch to English or to the learner's own language, not even to explain something.
+- Write ${language.nativeName} in its own script and orthography. Never transliterate it into the Latin alphabet unless that is how the language is normally written.
+- ${language.teachingNotes}
 
 ## Conversation
 Topic: ${ctx.topicLabel}
@@ -55,7 +66,7 @@ ${LEVEL_GUIDANCE[ctx.level]}
 - React to what was actually said before asking the next thing. Show you listened.
 - Keep the learner talking: they should speak far more than you.
 - If the learner goes silent or says almost nothing, offer an easier, more concrete question.
-- If the learner asks a question about English, answer it briefly in the conversation and move on.
+- If the learner asks a question about the language, answer it briefly, still in ${language.name.en}, and move on.
 
 ## Corrections — critical
 The learner sees your corrections on screen while you keep talking.
@@ -70,6 +81,9 @@ The learner sees your corrections on screen while you keep talking.
 ${focus ? `\n### Recurring mistakes to watch for\n${focus}\n\nWhen it fits the conversation, steer towards situations that require these forms. Do it invisibly, through what you ask — never announce it and never turn the conversation into an exercise.` : ''}
 ${ctx.activeVocabulary.length ? `\n### Words the learner is studying\n${ctx.activeVocabulary.slice(0, 20).join(', ')}\nUse a few of them naturally where they fit.` : ''}
 
+## Written feedback
+The explanations, and only the explanations, are written in English. Everything the learner hears is in ${language.name.en}.
+
 ## Level signal
 Report whether your last turn seemed too easy, about right, or too hard for this learner, based on their fluency, vocabulary range and hesitation.`
 }
@@ -82,7 +96,8 @@ export const TURN_SCHEMA = {
   properties: {
     reply: {
       type: 'string',
-      description: 'What the teacher says out loud. Spoken language only, no corrections.',
+      description:
+        'What the teacher says out loud, in the language being taught. Spoken language only, no corrections.',
     },
     corrections: {
       type: 'array',
@@ -115,7 +130,8 @@ export const TURN_SCHEMA = {
           },
           explanation: {
             type: 'string',
-            description: 'One short sentence explaining why, in simple English.',
+            description:
+              'One short sentence explaining why, written in simple English so the learner can read it beside the conversation.',
           },
           better_sentence: {
             type: 'string',
@@ -147,7 +163,6 @@ export const REPORT_SCHEMA = {
     'vocabulary',
     'fluency',
     'pronunciation',
-    'estimated_level',
     'summary',
     'main_mistakes',
     'new_words',
@@ -165,10 +180,6 @@ export const REPORT_SCHEMA = {
       type: ['integer', 'null'],
       description:
         'Only score this if the transcript shows real pronunciation evidence; otherwise null.',
-    },
-    estimated_level: {
-      type: 'string',
-      enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
     },
     summary: {
       type: 'string',
@@ -233,12 +244,15 @@ export const REPORT_SCHEMA = {
 
 export function buildReportPrompt(ctx: {
   learnerName: string
-  level: EnglishLevel
+  language: LanguageCode | string
+  level: Level
   topicLabel: string
   durationSeconds: number
   correctionCount: number
 }) {
-  return `You are assessing a spoken English session in Fluentia.
+  const language = getLanguage(ctx.language)
+
+  return `You are assessing a spoken ${language.name.en} session in Fluentia.
 
 Learner: ${ctx.learnerName}
 Declared level: ${LEVEL_LABELS[ctx.level]}
@@ -253,5 +267,6 @@ Rules:
 - A short session with little speech gets modest confidence: keep scores near the declared level rather than inventing extremes.
 - Pronunciation cannot be judged from text. Return null unless the transcript itself shows clear evidence (for example the learner mentioning a sound they struggled with, or a mis-transcription that reveals a pronunciation problem).
 - "new_words" and "expressions" must actually appear in the conversation.
-- Write the summary directly to the learner, in the second person.`
+- Write the summary directly to the learner, in the second person, in Portuguese — it is read, not heard.
+- Do not guess a CEFR level. Fluentia derives it from the speaking score you give, so the two can never disagree.`
 }

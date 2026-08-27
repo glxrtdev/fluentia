@@ -4,7 +4,7 @@ import { ArrowRight, Radio } from 'lucide-react'
 
 import { TopicPicker } from '@/components/conversation/topic-picker'
 import { PageHeader, PageShell } from '@/components/shell/page-header'
-import { getProfile, getSettings, requireUser } from '@/lib/auth/session'
+import { getProfile, getSettings, requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { conversations } from '@/lib/db/schema'
 import { recommendNext } from '@/lib/domain/recommendations'
@@ -14,14 +14,18 @@ export const metadata: Metadata = { title: 'Speaking' }
 
 export default async function SpeakPage() {
   const user = await requireUser()
-  const [profile, settings] = await Promise.all([getProfile(user.id), getSettings(user.id)])
+  const [profile, settings, workspace] = await Promise.all([
+    getProfile(user.id),
+    getSettings(user.id),
+    requireWorkspace(user.id),
+  ])
 
   const [recommendation, activeRows] = await Promise.all([
-    recommendNext(user.id),
+    recommendNext(workspace.id),
     db
       .select({ id: conversations.id, topicLabel: conversations.topicLabel })
       .from(conversations)
-      .where(and(eq(conversations.userId, user.id), eq(conversations.status, 'active')))
+      .where(and(eq(conversations.workspaceId, workspace.id), eq(conversations.status, 'active')))
       .orderBy(desc(conversations.startedAt))
       .limit(1),
   ])
@@ -31,9 +35,9 @@ export default async function SpeakPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Speaking"
-        title="Choose a topic"
-        description="Pick something you would actually talk about. The teacher opens the conversation, listens to your answer and keeps it going."
+        eyebrow="Conversar"
+        title="Escolha um tema"
+        description="Escolha algo sobre o que você realmente falaria. O professor abre a conversa, escuta sua resposta e mantém o papo."
       />
 
       {active && (
@@ -47,7 +51,7 @@ export default async function SpeakPage() {
               <Radio className="size-4 text-brand-600 dark:text-brand-400" />
             </span>
             <span>
-              <span className="block text-sm font-semibold text-ink">Session in progress</span>
+              <span className="block text-sm font-semibold text-ink">Sessão em andamento</span>
               <span className="block text-[0.8125rem] text-muted">{active.topicLabel}</span>
             </span>
           </span>
@@ -57,7 +61,7 @@ export default async function SpeakPage() {
 
       <div className="mt-8">
         <TopicPicker
-          defaultLevel={profile.level}
+          defaultLevel={workspace.level}
           hasApiKey={Boolean(settings.openaiKeyHint)}
           suggestion={
             recommendation

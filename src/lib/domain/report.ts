@@ -3,9 +3,9 @@ import 'server-only'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
-import { conversations, profiles, sessionReports } from '@/lib/db/schema'
-import type { EnglishLevel } from '@/lib/db/schema'
-import { ENGLISH_LEVELS } from '@/lib/db/schema'
+import { conversations, sessionReports, workspaces } from '@/lib/db/schema'
+import type { Level } from '@/lib/db/schema'
+import { LEVELS } from '@/lib/db/schema'
 import { conversationCorrections, conversationTranscript } from '@/lib/domain/conversation'
 import {
   registerPractice,
@@ -15,16 +15,8 @@ import {
 } from '@/lib/domain/gamification'
 import { AiError, type UserAi } from '@/lib/openai/client'
 import { buildReportPrompt, REPORT_SCHEMA } from '@/lib/openai/prompts'
+import { cefrForScore, CEFR_TO_LEVEL } from '@/lib/domain/cefr'
 import { clamp } from '@/lib/utils'
-
-const CEFR_TO_LEVEL: Record<string, EnglishLevel> = {
-  A1: 'beginner',
-  A2: 'elementary',
-  B1: 'intermediate',
-  B2: 'upper-intermediate',
-  C1: 'advanced',
-  C2: 'advanced',
-}
 
 type RawReport = Record<string, unknown>
 
@@ -57,11 +49,11 @@ function pairList<K extends string, V extends string>(
 }
 
 /** Moves a level one step towards `target` — never a jump. */
-function nudgeLevel(current: EnglishLevel, target: EnglishLevel): EnglishLevel {
-  const from = ENGLISH_LEVELS.indexOf(current)
-  const to = ENGLISH_LEVELS.indexOf(target)
+function nudgeLevel(current: Level, target: Level): Level {
+  const from = LEVELS.indexOf(current)
+  const to = LEVELS.indexOf(target)
   if (from === to || to < 0) return current
-  return ENGLISH_LEVELS[from + (to > from ? 1 : -1)]
+  return LEVELS[from + (to > from ? 1 : -1)]
 }
 
 /**
@@ -100,15 +92,15 @@ export async function finishConversation(args: {
   const userTurns = transcript.filter((message) => message.role === 'user')
 
   if (userTurns.length === 0) {
-    throw new AiError('There is nothing to report on yet — say something first.', 400)
+    throw new AiError('Ainda não há o que relatar — fale alguma coisa primeiro.', 400)
   }
 
-  const [profile] = await db
+  const [workspace] = await db
     .select()
-    .from(profiles)
-    .where(eq(profiles.userId, args.userId))
+    .from(workspaces)
+    .where(eq(workspaces.id, conversation.workspaceId))
     .limit(1)
-  if (!profile) throw new AiError('Your profile is missing.', 500)
+  if (!workspace) throw new AiError('Essa conversa não tem espaço de idioma.', 404)
 
   const wordsSpoken = userTurns.reduce(
     (total, message) => total + message.content.split(/\s+/).filter(Boolean).length,
@@ -131,6 +123,7 @@ export async function finishConversation(args: {
       {
         role: 'system',
         content: buildReportPrompt({
+          language: workspace.language,
           learnerName: args.learnerName,
           level: conversation.level,
           topicLabel: conversation.topicLabel,
@@ -158,22 +151,24 @@ export async function finishConversation(args: {
   try {
     raw = JSON.parse(content) as RawReport
   } catch {
-    throw new AiError('The report could not be read. Your session is still saved.')
+    throw new AiError('Não foi possível ler o relatório. Sua sessão continua salva.')
   }
 
   const baseline = 60
   const speaking = score(raw.speaking, baseline)
   const pronunciationRaw = raw.pronunciation
-  const estimatedCefr =
-    typeof raw.estimated_level === 'string' && CEFR_TO_LEVEL[raw.estimated_level]
-      ? raw.estimated_level
-      : (profile.estimatedCefr ?? 'B1')
+  /*
+   * Derived from the score rather than asked for. The model used to answer
+   * both separately, so a session could score 42 and still be labelled B2.
+   */
+  const estimatedCefr = cefrForScore(speaking)
 
   const [report] = await db
     .insert(sessionReports)
     .values({
       conversationId: conversation.id,
       userId: args.userId,
+      workspaceId: conversation.workspaceId,
       speaking,
       grammar: score(raw.grammar, speaking),
       vocabulary: score(raw.vocabulary, speaking),
@@ -183,7 +178,7 @@ export async function finishConversation(args: {
           ? null
           : score(pronunciationRaw, speaking),
       estimatedLevel: estimatedCefr,
-      summary: String(raw.summary ?? '').trim().slice(0, 1200) || 'Session completed.',
+      summary: String(raw.summary ?? '').trim().slice(0, 1200) || 'Sessão concluída.',
       mainMistakes: pairList(raw.main_mistakes, 'label', 'detail', 4),
       newWords: pairList(raw.new_words, 'word', 'meaning', 6),
       expressions: pairList(raw.expressions, 'expression', 'meaning', 6),
@@ -200,29 +195,32 @@ export async function finishConversation(args: {
     })
     .where(eq(conversations.id, conversation.id))
 
-  // The profile is the memory the next conversation reads from.
+  // The workspace is the memory the next conversation in this language reads from.
   const strengths = stringList(raw.strengths, 3)
   const weaknesses = stringList(raw.weaknesses, 3)
   const enoughEvidence = userTurns.length >= 4
   const nextLevel =
-    profile.autoAdaptLevel && enoughEvidence
-      ? nudgeLevel(profile.level, CEFR_TO_LEVEL[estimatedCefr] ?? profile.level)
-      : profile.level
+    workspace.autoAdaptLevel && enoughEvidence
+      ? nudgeLevel(workspace.level, CEFR_TO_LEVEL[estimatedCefr] ?? workspace.level)
+      : workspace.level
 
-  await db.update(profiles)
+  await db.update(workspaces)
     .set({
       estimatedCefr,
       level: nextLevel,
-      strengths: strengths.length ? strengths : profile.strengths,
-      weaknesses: weaknesses.length ? weaknesses : profile.weaknesses,
-      sessionsCompleted: profile.sessionsCompleted + 1,
+      strengths: strengths.length ? strengths : workspace.strengths,
+      weaknesses: weaknesses.length ? weaknesses : workspace.weaknesses,
+      sessionsCompleted: workspace.sessionsCompleted + 1,
+      totalPracticeSeconds:
+        workspace.totalPracticeSeconds + Math.max(0, Math.round(args.durationSeconds)),
       updatedAt: new Date(),
     })
-    .where(eq(profiles.userId, args.userId))
+    .where(eq(workspaces.id, workspace.id))
 
   const minutes = Math.max(0, Math.round(args.durationSeconds / 60))
   await registerPractice({
     userId: args.userId,
+    workspaceId: conversation.workspaceId,
     kind: 'conversation',
     seconds: args.durationSeconds,
     xp: XP.completeSession + minutes * XP.perMinuteSpoken,

@@ -13,16 +13,16 @@ import { cn } from '@/lib/utils'
 
 const META: Record<string, { label: string; unit: string; hint: string }> = {
   weekly_sessions: {
-    label: 'Speaking sessions',
-    unit: 'sessions',
-    hint: 'Conversations finished this week',
+    label: 'Conversas',
+    unit: 'sessões',
+    hint: 'Conversas concluídas nesta semana',
   },
-  weekly_minutes: { label: 'Minutes speaking', unit: 'minutes', hint: 'Time actually spent talking' },
-  weekly_words: { label: 'New words', unit: 'words', hint: 'Words added to your vocabulary' },
+  weekly_minutes: { label: 'Minutos falando', unit: 'minutes', hint: 'Tempo de fato falando' },
+  weekly_words: { label: 'Palavras novas', unit: 'palavras', hint: 'Palavras adicionadas ao seu vocabulário' },
   weekly_mistakes: {
-    label: 'Mistakes reviewed',
-    unit: 'mistakes',
-    hint: 'Patterns that came up and got attention',
+    label: 'Erros revisados',
+    unit: 'erros',
+    hint: 'Padrões que apareceram e receberam atenção',
   },
 }
 
@@ -38,8 +38,8 @@ export function GoalsForm({
   return (
     <Card>
       <CardHeader
-        title="Weekly goals"
-        hint="Set 0 to switch a goal off. Progress resets every Monday and is measured from your real sessions."
+        title="Metas semanais"
+        hint="Coloque 0 para desligar uma meta. O progresso zera toda segunda e é medido pelas suas sessões reais."
       />
 
       <form action={formAction} className="space-y-6">
@@ -100,12 +100,12 @@ export function GoalsForm({
         {state?.ok && (
           <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-brand-600 dark:text-brand-400">
             <CheckCircle2 className="size-4" />
-            Goals updated.
+            Metas atualizadas.
           </p>
         )}
 
         <Button type="submit" variant="secondary" loading={pending}>
-          Save goals
+          Salvar metas
         </Button>
       </form>
     </Card>

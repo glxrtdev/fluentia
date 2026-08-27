@@ -73,6 +73,8 @@ const REPORT = {
   vocabulary: 84,
   fluency: 76,
   pronunciation: null,
+  // Deliberately wrong for a score of 78, which is C1. The app must derive the
+  // band from the score and ignore this entirely.
   estimated_level: 'B2',
   summary: 'You kept the conversation going well. Watch your past tenses.',
   main_mistakes: [
@@ -150,6 +152,7 @@ function encryptSecret(plaintext) {
 const userId = randomUUID()
 const token = randomBytes(32).toString('base64url')
 const cookie = `fluentia_session=${token}`
+const workspaceId = randomUUID()
 const conversationId = randomUUID()
 
 async function seed() {
@@ -159,20 +162,25 @@ async function seed() {
             ${`scrypt$${randomBytes(16).toString('hex')}$${scryptSync('x', 'y', 64).toString('hex')}`})
   `
   await sql`
-    insert into profiles (user_id, level, onboarded_at, auto_adapt_level, main_goal)
-    values (${userId}, 'intermediate', now(), true, 'career')
+    insert into profiles (user_id, onboarded_at)
+    values (${userId}, now())
+  `
+  // Learning belongs to a workspace now; this one practises English.
+  await sql`
+    insert into workspaces (id, user_id, language, level, auto_adapt_level, main_goal)
+    values (${workspaceId}, ${userId}, 'en', 'intermediate', true, 'career')
   `
   await sql`
-    insert into user_settings (user_id, openai_key_cipher, openai_key_hint, openai_key_status)
-    values (${userId}, ${encryptSecret('sk-test-key-not-real')}, 'real', 'ok')
+    insert into user_settings (user_id, active_workspace_id, openai_key_cipher, openai_key_hint, openai_key_status)
+    values (${userId}, ${workspaceId}, ${encryptSecret('sk-test-key-not-real')}, 'real', 'ok')
   `
   await sql`
     insert into sessions (id, user_id, expires_at)
     values (${createHash('sha256').update(token).digest('hex')}, ${userId}, now() + interval '1 day')
   `
   await sql`
-    insert into conversations (id, user_id, topic_id, topic_label, category, level, status)
-    values (${conversationId}, ${userId}, 'my-career', 'My career', 'career', 'intermediate', 'active')
+    insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status)
+    values (${conversationId}, ${userId}, ${workspaceId}, 'en', 'my-career', 'My career', 'career', 'intermediate', 'active')
   `
   await sql`
     insert into conversation_messages (id, conversation_id, user_id, seq, role, content)
@@ -329,18 +337,40 @@ async function main() {
     conversation.status === 'completed' && conversation.duration_seconds === 420,
   )
 
-  const [profile] = await sql`select * from profiles where user_id = ${userId}`
-  record('CEFR estimate reached the profile', profile.estimated_cefr === 'B2')
+  /*
+   * The split matters: what describes progress in a language lands on the
+   * workspace, what describes the person lands on the profile. Asserting both
+   * sides is how a query scoped to the wrong id gets caught — the type system
+   * cannot, since both ids are strings.
+   */
+  const [space] = await sql`select * from workspaces where id = ${workspaceId}`
+  record(
+    'the CEFR band comes from the score, not from the model',
+    space.estimated_cefr === 'C1',
+    `speaking 78 → ${space.estimated_cefr} (the model said B2 and was ignored)`,
+  )
   record(
     'auto-adapt nudged the level one step',
-    profile.level === 'upper-intermediate',
-    `level is ${profile.level}`,
+    space.level === 'upper-intermediate',
+    `level is ${space.level}`,
   )
-  record('strengths were recorded', profile.strengths.includes('Vocabulary'))
-  record('practice time accumulated', profile.total_practice_seconds === 420)
-  record('sessions completed counted', profile.sessions_completed === 1)
+  record('strengths were recorded on the workspace', space.strengths.includes('Vocabulary'))
+  record('the workspace counted the session', space.sessions_completed === 1)
+  record('the workspace accumulated its practice time', space.total_practice_seconds === 420)
+
+  const [profile] = await sql`select * from profiles where user_id = ${userId}`
+  record('practice time accumulated on the account', profile.total_practice_seconds === 420)
+  record(
+    'sessions completed counted on the account',
+    profile.sessions_completed === 1,
+    `profiles.sessions_completed = ${profile.sessions_completed}`,
+  )
   record('streak started', profile.streak_current === 1 && profile.last_practice_date !== null)
   record('XP was awarded', profile.xp > 0, `${profile.xp} XP`)
+  record(
+    'the account keeps no per-language level of its own',
+    profile.level === undefined && profile.estimated_cefr === undefined,
+  )
 
   const unlocked = (
     await sql`select achievement_id from user_achievements where user_id = ${userId}`
@@ -370,8 +400,8 @@ async function main() {
 
   /* --- translation, on demand only ---------------------------------------- */
   await sql`
-    insert into vocabulary (id, user_id, word, definition)
-    values (${randomUUID()}, ${userId}, 'deadline', 'A time limit.')
+    insert into vocabulary (id, user_id, workspace_id, word, definition)
+    values (${randomUUID()}, ${userId}, ${workspaceId}, 'deadline', 'A time limit.')
   `
   const [saved] = await sql`
     select id, translation from vocabulary where user_id = ${userId} and word = 'deadline'
@@ -397,8 +427,8 @@ async function main() {
   emptyBody.set('audio', new File([], 'turn.webm', { type: 'audio/webm' }), 'turn.webm')
   const fresh = randomUUID()
   await sql`
-    insert into conversations (id, user_id, topic_id, topic_label, category, level, status)
-    values (${fresh}, ${userId}, 'hobbies', 'Hobbies', 'daily-life', 'intermediate', 'active')
+    insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status)
+    values (${fresh}, ${userId}, ${workspaceId}, 'en', 'hobbies', 'Hobbies', 'daily-life', 'intermediate', 'active')
   `
 
   const emptyUpload = await call(`/api/conversations/${fresh}/turn`, {

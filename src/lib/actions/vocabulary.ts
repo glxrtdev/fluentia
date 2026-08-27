@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { and, eq, sql } from 'drizzle-orm'
 
-import { requireUser } from '@/lib/auth/session'
+import { requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
 import { vocabulary } from '@/lib/db/schema'
 import { addXp, syncAchievements, XP } from '@/lib/domain/gamification'
@@ -14,9 +14,10 @@ export type VocabState = { ok?: boolean; error?: string; word?: string } | undef
 /** Saves a word the learner looked up or met in a conversation. */
 export async function addWord(input: unknown): Promise<VocabState> {
   const user = await requireUser()
+  const workspace = await requireWorkspace(user.id)
 
   const parsed = addVocabularySchema.safeParse(input)
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'That word could not be saved.' }
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Não foi possível salvar essa palavra.' }
 
   const data = parsed.data
   const word = data.word.toLowerCase()
@@ -24,18 +25,19 @@ export async function addWord(input: unknown): Promise<VocabState> {
   const [existing] = await db
     .select({ id: vocabulary.id })
     .from(vocabulary)
-    .where(and(eq(vocabulary.userId, user.id), eq(vocabulary.word, word)))
+    .where(and(eq(vocabulary.workspaceId, workspace.id), eq(vocabulary.word, word)))
     .limit(1)
 
   if (existing) {
     revalidatePath('/vocabulary')
-    return { ok: true, word, error: 'Already in your vocabulary.' }
+    return { ok: true, word, error: 'Já está no seu vocabulário.' }
   }
 
   await db
     .insert(vocabulary)
     .values({
       userId: user.id,
+      workspaceId: workspace.id,
       word,
       partOfSpeech: data.partOfSpeech ?? null,
       phonetic: data.phonetic ?? null,

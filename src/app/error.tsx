@@ -28,8 +28,8 @@ export default function ErrorBoundary({
       <div>
         <h1 className="display text-2xl text-ink">Something broke on our side</h1>
         <p className="mx-auto mt-2 max-w-sm text-[0.875rem] leading-relaxed text-muted">
-          Your conversations, mistakes and vocabulary are safe in the database. Try again, or head
-          back to the dashboard.
+          Suas conversas, erros e vocabulário estão a salvo no banco. Tente de novo, ou volte
+          para o painel.
         </p>
         {error.digest && (
           <p className="mt-3 font-mono text-[0.6875rem] text-faint">ref {error.digest}</p>
@@ -39,10 +39,10 @@ export default function ErrorBoundary({
       <div className="flex flex-wrap items-center justify-center gap-3">
         <Button onClick={reset}>
           <RotateCcw className="size-4" />
-          Try again
+          Tentar de novo
         </Button>
         <ButtonLink href="/dashboard" variant="secondary">
-          Back to dashboard
+          Voltar ao painel
         </ButtonLink>
       </div>
     </div>

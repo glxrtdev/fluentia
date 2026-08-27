@@ -9,23 +9,23 @@ import { getCurrentUser } from '@/lib/auth/session'
 const steps = [
   {
     icon: Mic,
-    title: 'You speak',
-    body: 'Hold the mic and answer like you would with a real teacher. No scripts, no multiple choice.',
+    title: 'Você fala',
+    body: 'Segure o microfone e responda como responderia a um professor de verdade. Sem roteiro, sem múltipla escolha.',
   },
   {
     icon: AudioLines,
-    title: 'The teacher answers',
-    body: 'Your speech is transcribed, understood in context, and answered out loud in a natural voice.',
+    title: 'O professor responde',
+    body: 'Sua fala é transcrita, entendida no contexto e respondida em voz alta, com voz natural.',
   },
   {
     icon: ListChecks,
-    title: 'Corrections appear beside you',
-    body: 'Only the mistakes that matter, shown silently in the feedback panel — the conversation never stops.',
+    title: 'As correções aparecem ao lado',
+    body: 'Só os erros que importam, mostrados em silêncio no painel — a conversa não para nunca.',
   },
   {
     icon: LineChart,
-    title: 'Your profile evolves',
-    body: 'Every session updates your level, your recurring mistakes and what the next conversation focuses on.',
+    title: 'Seu perfil evolui',
+    body: 'Cada sessão atualiza seu nível, seus erros recorrentes e o foco da próxima conversa.',
   },
 ]
 
@@ -41,10 +41,10 @@ export default async function LandingPage() {
             href="/login"
             className="rounded-pill px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-ink"
           >
-            Log in
+            Entrar
           </Link>
           <ButtonLink href="/signup" size="sm">
-            Start speaking
+            Começar a falar
           </ButtonLink>
         </nav>
       </header>
@@ -55,28 +55,29 @@ export default async function LandingPage() {
           <div className="animate-fade-up">
             <span className="inline-flex items-center gap-2 rounded-pill border border-line bg-surface px-3 py-1.5 text-[0.75rem] font-medium text-muted">
               <span className="size-1.5 rounded-full bg-brand-500" />
-              Voice-first English
+              Por voz, em dez idiomas
             </span>
 
             <h1 className="display mt-6 text-[2.75rem] leading-[1.04] text-ink sm:text-6xl lg:text-[4.1rem]">
-              Stop studying English.
+              Pare de estudar um idioma.
               <br />
-              <span className="text-brand-600 dark:text-brand-400">Start talking.</span>
+              <span className="text-brand-600 dark:text-brand-400">Comece a falar.</span>
             </h1>
 
             <p className="mt-6 max-w-xl text-[1.0625rem] leading-relaxed text-ink-soft">
-              Fluentia is a private English teacher you talk to out loud. It asks, listens, answers
-              in voice, and quietly writes down the mistakes worth fixing — so the conversation keeps
-              flowing while you actually improve.
+              A Fluentia é uma professora particular de idiomas com quem você fala em voz alta —
+              inglês, espanhol, francês, japonês e mais seis. Ela pergunta, escuta, responde falando
+              e anota em silêncio os erros que valem a pena corrigir, para a conversa seguir fluindo
+              enquanto você melhora de verdade.
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <ButtonLink href="/signup" size="lg">
-                Have your first conversation
+                Ter minha primeira conversa
                 <ArrowRight className="size-4" />
               </ButtonLink>
               <span className="text-[0.8125rem] text-muted">
-                Bring your own OpenAI key · no credits, no subscription
+                Use sua própria chave da OpenAI · sem créditos, sem assinatura
               </span>
             </div>
           </div>
@@ -89,21 +90,21 @@ export default async function LandingPage() {
                 <AudioLines className="size-4 text-brand-600 dark:text-brand-400" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">Job interview</p>
-                <p className="text-xs text-muted">Upper intermediate · 04:12</p>
+                <p className="text-sm font-semibold text-ink">Entrevista de emprego</p>
+                <p className="text-xs text-muted">Intermediário avançado · 04:12</p>
               </div>
             </div>
 
             <div className="space-y-4 py-5 text-[0.9375rem] leading-relaxed">
               <div>
                 <p className="mb-1 text-[0.75rem] font-medium text-muted">
-                  Teacher
+                  Professor
                 </p>
                 <p className="text-ink">Tell me about your current job.</p>
               </div>
               <div>
                 <p className="mb-1 text-[0.75rem] font-medium text-muted">
-                  You
+                  Você
                 </p>
                 <p className="text-ink-soft">
                   I work in this company since 2025 and I treat data every day.
@@ -113,7 +114,7 @@ export default async function LandingPage() {
 
             <div className="rounded-xl border border-line bg-surface-2 p-4">
               <p className="mb-3 text-[0.75rem] font-medium text-muted">
-                Feedback
+                Correções
               </p>
               <div className="space-y-3 text-sm">
                 <p>
@@ -137,9 +138,9 @@ export default async function LandingPage() {
 
         {/* How it works */}
         <section className="border-t border-line py-16 sm:py-20">
-          <h2 className="display text-3xl text-ink sm:text-4xl">One loop, done well</h2>
+          <h2 className="display text-3xl text-ink sm:text-4xl">Um ciclo, bem feito</h2>
           <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-muted">
-            Everything else in Fluentia exists to make this loop better the next time you open it.
+            Todo o resto da Fluentia existe para deixar esse ciclo melhor na próxima vez que você abrir.
           </p>
 
           <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -166,12 +167,12 @@ export default async function LandingPage() {
           <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
             <div>
               <h2 className="display text-3xl text-ink sm:text-4xl">
-                It remembers how <span className="italic">you</span> speak
+                Ela lembra de como <span className="italic">você</span> fala
               </h2>
               <p className="mt-4 max-w-lg text-[0.9375rem] leading-relaxed text-muted">
-                Corrections are not thrown away when the call ends. They become a profile: recurring
-                mistakes with real counts, the vocabulary you saved, the levels you handled well.
-                Your next conversation is built from that.
+                As correções não são jogadas fora quando a conversa acaba. Elas viram um perfil:
+                erros recorrentes com a contagem real, o vocabulário que você salvou, os níveis que
+                você deu conta. A sua próxima conversa é montada a partir disso.
               </p>
             </div>
 
@@ -179,23 +180,23 @@ export default async function LandingPage() {
               {[
                 {
                   icon: BrainCircuit,
-                  title: 'Personal learning profile',
-                  body: 'Estimated CEFR level, strengths and weak spots, updated after each report.',
+                  title: 'Perfil de aprendizado',
+                  body: 'Nível CEFR estimado, pontos fortes e fracos, atualizados depois de cada relatório.',
                 },
                 {
                   icon: ListChecks,
-                  title: 'My mistakes',
-                  body: '"depend of → depend on · 5 times", grouped by grammar, prepositions, naturalness.',
+                  title: 'Meus erros',
+                  body: '"depend of → depend on · 5 vezes", agrupados por gramática, preposições e naturalidade.',
                 },
                 {
                   icon: AudioLines,
-                  title: 'Session reports',
-                  body: 'Speaking, grammar, vocabulary and fluency scores with the expressions you used.',
+                  title: 'Relatórios de sessão',
+                  body: 'Notas de fala, gramática, vocabulário e fluência, com as expressões que você usou.',
                 },
                 {
                   icon: LineChart,
-                  title: 'Streaks and goals',
-                  body: 'Weekly targets in minutes, sessions, new words and mistakes reviewed.',
+                  title: 'Sequência e metas',
+                  body: 'Metas semanais de minutos, sessões, palavras novas e erros revisados.',
                 },
               ].map((f) => (
                 <div key={f.title} className="rounded-card border border-line bg-surface p-5">
@@ -212,18 +213,18 @@ export default async function LandingPage() {
         <section className="border-t border-line py-16 sm:py-24">
           <div className="edge-glow overflow-hidden rounded-card bg-pitch px-6 py-16 text-center sm:px-12">
             <h2 className="display text-3xl text-on-pitch sm:text-[2.5rem]">
-              Your first conversation is one click away
+              Sua primeira conversa está a um clique
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-[0.9375rem] leading-relaxed text-white/60">
-              Create an account, paste your own OpenAI key, pick a topic and start talking. Nothing
-              is simulated — you speak, it listens.
+              Crie uma conta, cole sua chave da OpenAI, escolha um tema e comece a falar. Nada é
+              simulado — você fala, ela escuta.
             </p>
             <ButtonLink
               href="/signup"
               size="lg"
               className="mt-9"
             >
-              Create my account
+              Criar minha conta
               <ArrowRight className="size-4" />
             </ButtonLink>
           </div>
@@ -232,9 +233,9 @@ export default async function LandingPage() {
 
       <footer className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 border-t border-line px-5 py-8 text-[0.8125rem] text-muted sm:flex-row sm:px-8">
         <Logo showWordmark={false} />
-        <p>Fluentia · voice-first English practice</p>
+        <p>Fluentia · prática de idiomas por voz</p>
         <Link href="/login" className="transition-colors hover:text-ink">
-          Log in
+          Entrar
         </Link>
       </footer>
     </div>

@@ -33,21 +33,21 @@ export function ApiKeyPanel({
   return (
     <Card>
       <CardHeader
-        title="OpenAI API key"
+        title="Chave da API da OpenAI"
         hint="Fluentia runs on your own OpenAI account. The key is encrypted with AES-256-GCM before it touches the database and is only ever decrypted on the server — it is never sent to the browser."
         action={
           status === 'ok' ? (
             <Badge tone="accent">
               <CheckCircle2 className="size-3" />
-              Connected
+              Conectada
             </Badge>
           ) : status === 'invalid' ? (
             <Badge tone="danger">
               <AlertTriangle className="size-3" />
-              Rejected
+              Recusada
             </Badge>
           ) : (
-            <Badge>Not configured</Badge>
+            <Badge>Não configurada</Badge>
           )
         }
       />
@@ -66,14 +66,14 @@ export function ApiKeyPanel({
               loading={pending}
               onClick={() => run(testApiKey)}
             >
-              Test connection
+              Testar conexão
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
               onClick={() => run(removeApiKey)}
-              aria-label="Remove key"
+              aria-label="Remover chave"
             >
               <Trash2 className="size-4" />
             </Button>
@@ -89,7 +89,7 @@ export function ApiKeyPanel({
         <Field
           label={configured ? 'Replace key' : 'API key'}
           error={feedback?.errors?.apiKey ?? feedback?.errors?.form}
-          hint="Starts with sk-. Saving runs a live check against OpenAI straight away."
+          hint="Começa com sk-. Ao salvar, fazemos uma verificação ao vivo com a OpenAI na hora."
         >
           <div className="relative">
             <Input
@@ -129,15 +129,16 @@ export function ApiKeyPanel({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:text-ink"
           >
-            Get a key
+            Obter uma chave
             <ExternalLink className="size-3.5" />
           </a>
         </div>
       </form>
 
       <p className="mt-6 border-t border-line pt-5 text-xs leading-relaxed text-muted">
-        Every transcription, reply and voice clip is billed to your OpenAI account. Fluentia has no
-        credits, no markup and no shared key — usage and cost are entirely yours to control.
+        Cada transcrição, resposta e trecho de voz é cobrado na sua conta da OpenAI. A Fluentia
+        não tem créditos, não cobra margem e não usa chave compartilhada — o uso e o custo são
+        inteiramente seus.
       </p>
     </Card>
   )

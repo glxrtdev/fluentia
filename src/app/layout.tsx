@@ -18,11 +18,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Fluentia — Speak English with an AI teacher',
+    default: 'Fluentia — Speak a new language with an AI teacher',
     template: '%s · Fluentia',
   },
   description:
-    'Fluentia is a voice-first English tutor. Have real conversations, get corrections as you speak, and watch your own learning profile evolve.',
+    'Fluentia is a voice-first language tutor for ten languages. Have real conversations, get corrections as you speak, and watch your own learning profile evolve.',
   applicationName: 'Fluentia',
 }
 

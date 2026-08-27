@@ -3,7 +3,7 @@ import 'server-only'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 
 import { db } from '@/lib/db'
-import { conversations, mistakes, profiles, sessionReports, vocabulary } from '@/lib/db/schema'
+import { conversations, mistakes, sessionReports, vocabulary, workspaces } from '@/lib/db/schema'
 import { TOPIC_BY_ID, TOPICS } from '@/lib/domain/topics'
 import { CATEGORY_LABELS } from '@/lib/utils'
 
@@ -12,6 +12,16 @@ export type Recommendation = {
   topicLabel: string
   reason: string
   minutes: number
+}
+
+/** The goals a learner picks at onboarding, written the way the app says them. */
+const GOAL_LABELS: Record<string, string> = {
+  travel: 'viagem',
+  career: 'carreira',
+  studies: 'estudos',
+  interviews: 'entrevistas',
+  'daily-conversation': 'conversa do dia a dia',
+  fluency: 'fluência',
 }
 
 /** Topics that naturally force a given kind of language out of the learner. */
@@ -39,46 +49,46 @@ const PAST_TENSE_HINTS = /\b(went|was|were|did|had|yesterday|last week|past tens
  * Turns the learner's own history into a next step. Everything here reads real
  * rows — there is no placeholder path.
  */
-export async function recommendNext(userId: string): Promise<Recommendation | null> {
+export async function recommendNext(workspaceId: string): Promise<Recommendation | null> {
   /*
    * The rules below short-circuit, but asking for their inputs one at a time
    * meant five sequential round trips to a database on another continent.
    * Fetching all five at once costs one trip and the same rows.
    */
-  const [profileRows, recent, worstRows, recentReports, studyingRows] = await Promise.all([
-    db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1),
+  const [workspaceRows, recent, worstRows, recentReports, studyingRows] = await Promise.all([
+    db.select().from(workspaces).where(eq(workspaces.id, workspaceId)).limit(1),
     db
       .select({ topicId: conversations.topicId })
       .from(conversations)
-      .where(and(eq(conversations.userId, userId), eq(conversations.status, 'completed')))
+      .where(and(eq(conversations.workspaceId, workspaceId), eq(conversations.status, 'completed')))
       .orderBy(desc(conversations.startedAt))
       .limit(4),
     db
       .select()
       .from(mistakes)
-      .where(and(eq(mistakes.userId, userId), eq(mistakes.status, 'open')))
+      .where(and(eq(mistakes.workspaceId, workspaceId), eq(mistakes.status, 'open')))
       .orderBy(desc(mistakes.occurrences), desc(mistakes.lastSeenAt))
       .limit(1),
     db
       .select({ speaking: sessionReports.speaking, vocabulary: sessionReports.vocabulary })
       .from(sessionReports)
-      .where(eq(sessionReports.userId, userId))
+      .where(eq(sessionReports.workspaceId, workspaceId))
       .orderBy(desc(sessionReports.createdAt))
       .limit(3),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(vocabulary)
-      .where(and(eq(vocabulary.userId, userId), eq(vocabulary.status, 'learning'))),
+      .where(and(eq(vocabulary.workspaceId, workspaceId), eq(vocabulary.status, 'learning'))),
   ])
 
-  const profile = profileRows[0]
-  if (!profile) return null
+  const workspace = workspaceRows[0]
+  if (!workspace) return null
 
   const recentTopics = new Set(
     recent.map((row) => row.topicId).filter((value): value is string => Boolean(value)),
   )
 
-  const pick = (topicId: string, reason: string, minutes = profile.dailyMinutesGoal) => {
+  const pick = (topicId: string, reason: string, minutes = workspace.dailyMinutesGoal) => {
     const topic = TOPIC_BY_ID.get(topicId)
     if (!topic) return null
     return { topicId, topicLabel: topic.label, reason, minutes }
@@ -96,7 +106,7 @@ export async function recommendNext(userId: string): Promise<Recommendation | nu
         : (CATEGORY_LABELS[worst.category]?.toLowerCase() ?? worst.category)
       return pick(
         topicId,
-        `You have slipped on ${label} ${worst.occurrences} times — "${worst.original}" should be "${worst.corrected}". This topic pulls that form out of you naturally.`,
+        `Você escorregou em ${label} ${worst.occurrences} vezes — "${worst.original}" deveria ser "${worst.corrected}". Este tema puxa essa forma de você naturalmente.`,
       )
     }
   }
@@ -113,19 +123,19 @@ export async function recommendNext(userId: string): Promise<Recommendation | nu
       if (harder) {
         return pick(
           harder,
-          `Your last sessions averaged ${Math.round(average)} on speaking. Time for something that pushes back.`,
+          `Suas últimas sessões tiveram média ${Math.round(average)} em fala. Hora de algo que ofereça resistência.`,
         )
       }
     }
   }
 
   // 3. Nudge towards the goal they signed up for.
-  if (profile.mainGoal) {
-    const goalTopic = GOAL_TO_TOPIC[profile.mainGoal]
+  if (workspace.mainGoal) {
+    const goalTopic = GOAL_TO_TOPIC[workspace.mainGoal]
     if (goalTopic && !recentTopics.has(goalTopic)) {
       return pick(
         goalTopic,
-        `Your main goal is ${profile.mainGoal.replace('-', ' ')}. This is the conversation that gets you closer to it.`,
+        `Seu objetivo principal é ${GOAL_LABELS[workspace.mainGoal] ?? workspace.mainGoal}. Esta é a conversa que te aproxima dele.`,
       )
     }
   }
@@ -138,7 +148,7 @@ export async function recommendNext(userId: string): Promise<Recommendation | nu
     if (topic) {
       return pick(
         topic.id,
-        `You have ${studying.count} words waiting to be used. The teacher will slip them into this conversation.`,
+        `Você tem ${studying.count} palavras esperando para serem usadas. O professor vai encaixá-las nesta conversa.`,
       )
     }
   }
@@ -147,7 +157,7 @@ export async function recommendNext(userId: string): Promise<Recommendation | nu
   const topic = TOPICS.find((candidate) => !recentTopics.has(candidate.id)) ?? TOPICS[0]
   return pick(
     topic.id,
-    'A relaxed first conversation is the fastest way to get a real reading of your level.',
+    'Uma primeira conversa tranquila é o jeito mais rápido de medir seu nível de verdade.',
   )
 }
 
@@ -156,7 +166,7 @@ export async function recommendNext(userId: string): Promise<Recommendation | nu
  * cast explicitly: Postgres returns count/sum as bigint, which arrives as a
  * string unless it is narrowed here.
  */
-export async function learningSnapshot(userId: string) {
+export async function learningSnapshot(workspaceId: string) {
   const [wordRows, mistakeRows, scoreRows] = await Promise.all([
     db
       .select({
@@ -166,7 +176,7 @@ export async function learningSnapshot(userId: string) {
         review: sql<number>`coalesce(sum(case when ${vocabulary.status} = 'review' then 1 else 0 end), 0)::int`,
       })
       .from(vocabulary)
-      .where(eq(vocabulary.userId, userId)),
+      .where(eq(vocabulary.workspaceId, workspaceId)),
     db
       .select({
         tracked: sql<number>`count(*)::int`,
@@ -175,7 +185,7 @@ export async function learningSnapshot(userId: string) {
         occurrences: sql<number>`coalesce(sum(${mistakes.occurrences}), 0)::int`,
       })
       .from(mistakes)
-      .where(eq(mistakes.userId, userId)),
+      .where(eq(mistakes.workspaceId, workspaceId)),
     db
       .select({
         speaking: sql<number | null>`round(avg(${sessionReports.speaking}))::int`,
@@ -185,7 +195,7 @@ export async function learningSnapshot(userId: string) {
         sessions: sql<number>`count(*)::int`,
       })
       .from(sessionReports)
-      .where(eq(sessionReports.userId, userId)),
+      .where(eq(sessionReports.workspaceId, workspaceId)),
   ])
 
   const words = wordRows[0]
@@ -216,7 +226,7 @@ export async function learningSnapshot(userId: string) {
 }
 
 /** Weekly goal progress computed from practice rows, never stored twice. */
-export async function weeklyProgress(userId: string, weekStart: string) {
+export async function weeklyProgress(workspaceId: string, weekStart: string) {
   const since = new Date(`${weekStart}T00:00:00`)
 
   const [sessionRows, wordRows, reviewedRows] = await Promise.all([
@@ -226,15 +236,15 @@ export async function weeklyProgress(userId: string, weekStart: string) {
         seconds: sql<number>`coalesce(sum(${conversations.durationSeconds}), 0)::int`,
       })
       .from(conversations)
-      .where(and(eq(conversations.userId, userId), gte(conversations.startedAt, since))),
+      .where(and(eq(conversations.workspaceId, workspaceId), gte(conversations.startedAt, since))),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(vocabulary)
-      .where(and(eq(vocabulary.userId, userId), gte(vocabulary.createdAt, since))),
+      .where(and(eq(vocabulary.workspaceId, workspaceId), gte(vocabulary.createdAt, since))),
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(mistakes)
-      .where(and(eq(mistakes.userId, userId), gte(mistakes.lastSeenAt, since))),
+      .where(and(eq(mistakes.workspaceId, workspaceId), gte(mistakes.lastSeenAt, since))),
   ])
 
   return {

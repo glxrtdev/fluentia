@@ -21,7 +21,7 @@ export async function setMistakeStatus(id: string, status: string) {
     .from(mistakes)
     .where(and(eq(mistakes.id, id), eq(mistakes.userId, user.id)))
     .limit(1)
-  if (!before) return { error: 'Mistake not found.' }
+  if (!before) return { error: 'Erro não encontrado.' }
 
   await db
     .update(mistakes)

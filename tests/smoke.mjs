@@ -40,11 +40,16 @@ async function makeUser(label) {
     insert into users (id, email, name, password_hash)
     values (${id}, ${`${label}-${stamp}@fluentia.test`}, ${`${label} Tester`}, ${password})
   `
-  await sql`
-    insert into profiles (user_id, level, onboarded_at, main_goal)
-    values (${id}, 'intermediate', now(), 'career')
-  `
+  await sql`insert into profiles (user_id, onboarded_at) values (${id}, now())`
   await sql`insert into user_settings (user_id) values (${id})`
+
+  // Learning now hangs off a workspace, so every fixture needs one.
+  const workspaceId = randomUUID()
+  await sql`
+    insert into workspaces (id, user_id, language, level, main_goal)
+    values (${workspaceId}, ${id}, 'en', 'intermediate', 'career')
+  `
+  await sql`update user_settings set active_workspace_id = ${workspaceId} where user_id = ${id}`
 
   for (const [kind, target] of [
     ['weekly_sessions', 5],
@@ -53,8 +58,8 @@ async function makeUser(label) {
     ['weekly_mistakes', 10],
   ]) {
     await sql`
-      insert into goals (id, user_id, kind, target)
-      values (${randomUUID()}, ${id}, ${kind}, ${target})
+      insert into goals (id, user_id, workspace_id, kind, target)
+      values (${randomUUID()}, ${id}, ${workspaceId}, ${kind}, ${target})
     `
   }
 
@@ -64,7 +69,7 @@ async function makeUser(label) {
     values (${createHash('sha256').update(token).digest('hex')}, ${id}, now() + interval '1 day')
   `
 
-  return { id, cookie: `fluentia_session=${token}` }
+  return { id, workspaceId, cookie: `fluentia_session=${token}` }
 }
 
 /** Throwaway fixtures are removed so the database stays clean. */
@@ -143,8 +148,8 @@ async function signupJourney() {
   const dashboard = await call('/dashboard', {}, journeyCookie)
   const body = await dashboard.text()
   record('the new dashboard renders', dashboard.status === 200)
-  record('a fresh account is told to add its OpenAI key', body.includes('One step left'))
-  record('a fresh account starts with no practice', body.includes('Streak'))
+  record('a fresh account is told to add its OpenAI key', body.includes('Falta um passo'))
+  record('a fresh account starts with no practice', body.includes('Sequência'))
 
   // A mistyped confirmation must not create an account: there is no reset email.
   const mismatchPage = await call('/signup')
@@ -158,7 +163,7 @@ async function signupJourney() {
   const mismatchBody = await mismatched.text()
   record(
     'a mistyped password confirmation is refused',
-    mismatched.status === 200 && /do not match/i.test(mismatchBody),
+    mismatched.status === 200 && /não conferem/i.test(mismatchBody),
     `status ${mismatched.status}`,
   )
   const [leaked] = await sql`select count(*)::int as n from users where email = ${`typo-${stamp}@fluentia.test`}`
@@ -192,7 +197,7 @@ async function signupJourney() {
   const duplicateBody = await duplicate.text()
   record(
     'a duplicate email is refused',
-    duplicate.status === 200 && duplicateBody.includes('already registered'),
+    duplicate.status === 200 && /já está cadastrado/i.test(duplicateBody),
     `status ${duplicate.status}`,
   )
 }
@@ -204,8 +209,8 @@ async function main() {
   // A conversation belonging to `owner`, used for the isolation checks.
   const conversationId = randomUUID()
   await sql`
-    insert into conversations (id, user_id, topic_id, topic_label, category, level, status, duration_seconds, user_turns)
-    values (${conversationId}, ${owner.id}, 'my-career', 'My career', 'career', 'intermediate', 'active', 0, 1)
+    insert into conversations (id, user_id, workspace_id, language, topic_id, topic_label, category, level, status, duration_seconds, user_turns)
+    values (${conversationId}, ${owner.id}, ${owner.workspaceId}, 'en', 'my-career', 'My career', 'career', 'intermediate', 'active', 0, 1)
   `
 
   const messageId = randomUUID()
@@ -215,14 +220,14 @@ async function main() {
   `
 
   await sql`
-    insert into mistakes (id, user_id, category, signature, original, corrected, explanation, occurrences)
-    values (${randomUUID()}, ${owner.id}, 'prepositions', 'prepositions:depend of>depend on',
+    insert into mistakes (id, user_id, workspace_id, category, signature, original, corrected, explanation, occurrences)
+    values (${randomUUID()}, ${owner.id}, ${owner.workspaceId}, 'prepositions', 'prepositions:depend of>depend on',
             'depend of', 'depend on', 'In English we depend ON something.', 4)
   `
 
   await sql`
-    insert into vocabulary (id, user_id, word, definition, status)
-    values (${randomUUID()}, ${owner.id}, 'entrepreneurship', 'The activity of setting up a business.', 'learning')
+    insert into vocabulary (id, user_id, workspace_id, word, definition, status)
+    values (${randomUUID()}, ${owner.id}, ${owner.workspaceId}, 'entrepreneurship', 'The activity of setting up a business.', 'learning')
   `
 
   /* public surface */
@@ -383,7 +388,14 @@ async function main() {
       Array.isArray(meaning?.synonyms) &&
       Array.isArray(meaning?.antonyms),
   )
-  record('definitions are credited to the source', entry?.source === 'dictionaryapi.dev')
+  // Either source is correct: English tries dictionaryapi.dev first and falls
+  // back to Wiktionary when it flakes, which it does often enough to fail a
+  // test that insists on one name.
+  record(
+    'definitions are credited to a real dictionary',
+    entry?.source === 'dictionaryapi.dev' || entry?.source === 'wiktionary',
+    entry?.source,
+  )
 
   const missing = await call('/api/dictionary?word=zzqqxx', {}, owner.cookie)
   const missingBody = await missing.json().catch(() => ({}))

@@ -129,15 +129,15 @@ export function WordSearch() {
           <Input
             value={term}
             onChange={(event) => setTerm(event.target.value)}
-            placeholder="Look up a word — entrepreneurship, deadline, thrive…"
+            placeholder="Busque uma palavra — 締め切り, deadline, prosperar…"
             className="pl-9"
             autoCapitalize="none"
             spellCheck={false}
-            aria-label="Search the dictionary"
+            aria-label="Buscar no dicionário"
           />
         </div>
         <Button type="submit" loading={loading}>
-          Search
+          Buscar
         </Button>
       </form>
 
@@ -168,7 +168,7 @@ export function WordSearch() {
             </span>
             <div role="alert">
               <p className="text-[0.9375rem] font-medium text-ink">
-                {failure.notFound ? 'No entry for that word' : 'The dictionary is unavailable'}
+                {failure.notFound ? 'Sem verbete para essa palavra' : 'O dicionário está indisponível'}
               </p>
               <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">{failure.message}</p>
               {failure.notFound ? (
@@ -186,7 +186,7 @@ export function WordSearch() {
                   onClick={() => void lookup(term)}
                 >
                   <RotateCcw className="size-3.5" />
-                  Try again
+                  Tentar de novo
                 </Button>
               )}
             </div>
@@ -222,12 +222,12 @@ export function WordSearch() {
               {saved === entry.word ? (
                 <>
                   <Check className="size-3.5" />
-                  In my vocabulary
+                  No meu vocabulário
                 </>
               ) : (
                 <>
                   <BookmarkPlus className="size-3.5" />
-                  Add to my vocabulary
+                  Adicionar ao meu vocabulário
                 </>
               )}
             </Button>
@@ -277,7 +277,11 @@ export function WordSearch() {
           <p className="mt-6 border-t border-line pt-4 text-xs text-faint">
             Definitions from{' '}
             <a
-              href="https://dictionaryapi.dev"
+              href={
+                entry.source === 'wiktionary'
+                  ? 'https://en.wiktionary.org'
+                  : 'https://dictionaryapi.dev'
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 transition-colors hover:text-muted"

@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 
-import { requireUser } from '@/lib/auth/session'
+import { requireUser, requireWorkspace } from '@/lib/auth/session'
 import { db } from '@/lib/db'
-import { goals, profiles, users } from '@/lib/db/schema'
+import { createWorkspace, WorkspaceError } from '@/lib/domain/workspace'
+import { goals, profiles, users, workspaces } from '@/lib/db/schema'
 import type { GoalKind } from '@/lib/db/schema'
-import { fieldErrors, goalsSchema, profileSchema } from '@/lib/validation'
+import { fieldErrors, goalsSchema, onboardingSchema, profileSchema } from '@/lib/validation'
 import { GOAL_KINDS } from '@/lib/db/schema'
 
 export type FormState = { ok?: boolean; errors?: Record<string, string> } | undefined
@@ -26,8 +27,9 @@ export async function completeOnboarding(
 ): Promise<FormState> {
   const user = await requireUser()
 
-  const parsed = profileSchema.safeParse({
+  const parsed = onboardingSchema.safeParse({
     name: formData.get('name') || user.name,
+    language: formData.get('language'),
     level: formData.get('level'),
     autoAdaptLevel: formData.get('autoAdaptLevel') !== 'false',
     mainGoal: formData.get('mainGoal') || null,
@@ -38,15 +40,25 @@ export async function completeOnboarding(
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const data = parsed.data
+
+  // The workspace carries everything that describes progress in a language;
+  // the profile keeps only what belongs to the person.
+  try {
+    await createWorkspace(user.id, data.language, {
+      level: data.level,
+      mainGoal: data.mainGoal,
+      interests: data.interests,
+      dailyMinutesGoal: data.dailyMinutesGoal,
+    })
+  } catch (error) {
+    if (error instanceof WorkspaceError) return { errors: { form: error.message } }
+    throw error
+  }
+
   await db
     .update(profiles)
     .set({
-      level: data.level,
-      autoAdaptLevel: data.autoAdaptLevel,
-      mainGoal: data.mainGoal,
-      dailyMinutesGoal: data.dailyMinutesGoal,
       nativeLanguage: data.nativeLanguage,
-      interests: data.interests,
       onboardedAt: new Date(),
       updatedAt: new Date(),
     })
@@ -70,19 +82,24 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
   const data = parsed.data
+  const workspace = await requireWorkspace(user.id)
+
   await db.update(users).set({ name: data.name }).where(eq(users.id, user.id))
   await db
     .update(profiles)
+    .set({ nativeLanguage: data.nativeLanguage, updatedAt: new Date() })
+    .where(eq(profiles.userId, user.id))
+  await db
+    .update(workspaces)
     .set({
       level: data.level,
       autoAdaptLevel: data.autoAdaptLevel,
       mainGoal: data.mainGoal,
       dailyMinutesGoal: data.dailyMinutesGoal,
-      nativeLanguage: data.nativeLanguage,
       interests: data.interests,
       updatedAt: new Date(),
     })
-    .where(eq(profiles.userId, user.id))
+    .where(eq(workspaces.id, workspace.id))
 
   revalidatePath('/settings')
   revalidatePath('/profile')
@@ -91,6 +108,7 @@ export async function updateProfile(_prev: FormState, formData: FormData): Promi
 
 export async function updateGoals(_prev: FormState, formData: FormData): Promise<FormState> {
   const user = await requireUser()
+  const workspace = await requireWorkspace(user.id)
 
   const parsed = goalsSchema.safeParse({
     goals: GOAL_KINDS.map((kind) => ({ kind, target: Number(formData.get(kind) ?? 0) })),
@@ -100,9 +118,14 @@ export async function updateGoals(_prev: FormState, formData: FormData): Promise
   for (const goal of parsed.data.goals) {
     await db
       .insert(goals)
-      .values({ userId: user.id, kind: goal.kind as GoalKind, target: goal.target })
+      .values({
+        userId: user.id,
+        workspaceId: workspace.id,
+        kind: goal.kind as GoalKind,
+        target: goal.target,
+      })
       .onConflictDoUpdate({
-        target: [goals.userId, goals.kind],
+        target: [goals.workspaceId, goals.kind],
         set: { target: goal.target, active: goal.target > 0 },
       })
   }
