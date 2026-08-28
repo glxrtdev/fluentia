@@ -14,6 +14,7 @@
 import { createServer } from 'node:http'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import postgres from 'postgres'
+import { FAKE_GEMINI_KEY } from './fake-keys.mjs'
 
 import { createCipheriv } from 'node:crypto'
 
@@ -112,7 +113,7 @@ async function seed() {
     insert into user_settings (user_id, active_workspace_id, ai_provider,
                                gemini_key_cipher, gemini_key_hint, gemini_key_status, voice)
     values (${userId}, ${workspaceId}, 'gemini',
-            ${encryptSecret('AIzaSyTESTKEYNOTREALxxxxxxxxxxxxxxxxxxx')}, 'xxxx', 'ok', 'Zephyr')`
+            ${encryptSecret(FAKE_GEMINI_KEY)}, 'xxxx', 'ok', 'Zephyr')`
   await sql`insert into sessions (id, user_id, expires_at)
             values (${createHash('sha256').update(token).digest('hex')}, ${userId}, now() + interval '2 hours')`
   await sql`
@@ -161,7 +162,7 @@ async function main() {
 
   /* ------------------------------- the requests were shaped the Gemini way */
 
-  const keyed = seen.every((call) => call.apiKey === 'AIzaSyTESTKEYNOTREALxxxxxxxxxxxxxxxxxxx')
+  const keyed = seen.every((call) => call.apiKey === FAKE_GEMINI_KEY)
   record('the key travels in the header, never in the URL', keyed && seen.every((c) => !c.url.includes('key=')))
 
   const transcription = seen.find((call) => JSON.stringify(call.body?.contents ?? '').includes('inlineData'))

@@ -19,6 +19,7 @@ import { createServer } from 'node:http'
 import { createCipheriv, createHash, randomBytes, randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { chromium } from 'playwright'
+import { FAKE_GEMINI_AUTH_KEY, FAKE_OPENAI_KEY } from './fake-keys.mjs'
 
 const base = process.argv[2] ?? 'http://localhost:3100'
 const openaiPort = Number(process.argv[3] ?? 4330)
@@ -159,8 +160,8 @@ const workspaceId = randomUUID()
 const token = randomBytes(32).toString('base64url')
 const cookie = `fluentia_session=${token}`
 
-const OPENAI_KEY = 'sk-proj-BOTHKEYSTESTxxxxxxxxxxxxxxxxxxxxxx'
-const GEMINI_KEY = 'AQ.Ab8RN6BOTHKEYSTESTxxxxxxxxxxxxxxxxxx'
+const OPENAI_KEY = FAKE_OPENAI_KEY
+const GEMINI_KEY = FAKE_GEMINI_AUTH_KEY
 
 async function seed() {
   await sql`insert into users (id, email, name, password_hash)

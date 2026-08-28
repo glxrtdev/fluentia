@@ -17,6 +17,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import postgres from 'postgres'
 import { chromium } from 'playwright'
+import { FAKE_GEMINI_AUTH_KEY, FAKE_GEMINI_KEY, FAKE_OPENAI_KEY } from './fake-keys.mjs'
 
 const base = process.argv[2] ?? 'http://localhost:3100'
 const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, onnotice: () => {} })
@@ -98,7 +99,7 @@ async function main() {
   record('Gemini is the selected provider', /Gemini/i.test(body))
 
   /* --- the new auth key format ------------------------------------------ */
-  const aq = await submit('AQ.Ab8RN6JcK3mQ7vX2pL9wZ0aT4sY1nB5dE7fG9hJ2kL')
+  const aq = await submit(FAKE_GEMINI_AUTH_KEY)
   record(
     'an AQ. auth key is not turned away as the wrong shape',
     !SHAPE_COMPLAINT.test(aq),
@@ -118,7 +119,7 @@ async function main() {
   )
 
   /* --- the classic format still works ----------------------------------- */
-  const aiza = await submit('AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123456')
+  const aiza = await submit(FAKE_GEMINI_KEY)
   record(
     'the classic AIza key still gets through the shape check',
     !SHAPE_COMPLAINT.test(aiza),
@@ -126,7 +127,7 @@ async function main() {
   )
 
   /* --- and the wrong provider's key is still caught locally -------------- */
-  const openai = await submit('sk-proj-abcdefghijklmnopqrstuvwxyz012345')
+  const openai = await submit(FAKE_OPENAI_KEY)
   record(
     'an OpenAI key is still refused, by name, before any network call',
     SHAPE_COMPLAINT.test(openai) && /Gemini/i.test(openai),
