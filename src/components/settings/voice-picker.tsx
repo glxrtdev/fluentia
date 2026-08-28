@@ -5,13 +5,10 @@ import { Loader2, Play, Square, Volume2 } from 'lucide-react'
 
 import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { VOICES, VOICE_SAMPLE } from '@/lib/voices'
+import type { ProviderId } from '@/lib/ai/provider'
+import { voicesFor, VOICE_SAMPLE } from '@/lib/voices'
 
-const OPTIONS = VOICES.map((voice) => ({
-  value: voice.id,
-  label: voice.label,
-  description: voice.description,
-}))
+
 
 type Status = 'idle' | 'loading' | 'playing'
 
@@ -20,7 +17,19 @@ type Status = 'idle' | 'loading' | 'playing'
  * moment it is selected. The audio is cached per voice, so going back to one
  * you already heard is instant and free.
  */
-export function VoicePicker({ defaultValue }: { defaultValue: string }) {
+export function VoicePicker({
+  defaultValue,
+  provider,
+}: {
+  defaultValue: string
+  provider: ProviderId
+}) {
+  const options = voicesFor(provider).map((voice) => ({
+    value: voice.id,
+    label: voice.label,
+    description: voice.description,
+  }))
+
   const [status, setStatus] = useState<Status>('idle')
   const [voice, setVoice] = useState(defaultValue)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +75,7 @@ export function VoicePicker({ defaultValue }: { defaultValue: string }) {
       <div className="flex items-start gap-2">
         <Select
           name="voice"
-          options={OPTIONS}
+          options={options}
           defaultValue={defaultValue}
           className="flex-1"
           onChange={(next) => {

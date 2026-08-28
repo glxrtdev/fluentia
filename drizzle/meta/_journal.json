@@ -36,6 +36,13 @@
       "when": 1787841106649,
       "tag": "0004_progression",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787922400948,
+      "tag": "0005_providers",
+      "breakpoints": true
     }
   ]
 }

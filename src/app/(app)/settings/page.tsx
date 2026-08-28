@@ -4,19 +4,19 @@ import { ShieldCheck } from 'lucide-react'
 import { PageHeader, PageShell } from '@/components/shell/page-header'
 import { AiPreferences } from '@/components/settings/ai-preferences'
 import { ApiKeyPanel } from '@/components/settings/api-key-panel'
+import { ProviderPanel } from '@/components/settings/provider-panel'
 import { LearningPreferences } from '@/components/settings/learning-preferences'
 import { PasswordPanel } from '@/components/settings/password-panel'
 import { WorkspacePanel } from '@/components/settings/workspace-panel'
 import { Card } from '@/components/ui/card'
 import { getProfile, getSettings, requireUser, requireWorkspace } from '@/lib/auth/session'
 import { listWorkspaces, MAX_WORKSPACES } from '@/lib/domain/workspace'
-import { DEFAULT_MODELS } from '@/lib/openai/client'
 import { loadModelOptions } from '@/lib/openai/models'
 import { db } from '@/lib/db'
 import { conversations, vocabulary } from '@/lib/db/schema'
 import { and, eq, sql as raw } from 'drizzle-orm'
 
-export const metadata: Metadata = { title: 'Settings' }
+export const metadata: Metadata = { title: 'Configurações' }
 
 export default async function SettingsPage() {
   const user = await requireUser()
@@ -26,9 +26,11 @@ export default async function SettingsPage() {
     requireWorkspace(user.id),
   ])
 
+  const provider = settings.aiProvider
+
   // Offered from the recommended set plus whatever this account can reach.
   const [models, workspaces, counts] = await Promise.all([
-    loadModelOptions(user.id, DEFAULT_MODELS),
+    loadModelOptions(user.id, provider),
     listWorkspaces(user.id),
     // How much lives in each space, so removing one is an informed decision.
     db
@@ -66,10 +68,15 @@ export default async function SettingsPage() {
       />
 
       <div className="mt-8 space-y-6">
+        <ProviderPanel current={provider} />
+
         <ApiKeyPanel
-          hint={settings.openaiKeyHint}
-          status={settings.openaiKeyStatus}
-          verifiedAt={settings.openaiKeyVerifiedAt}
+          providerId={provider}
+          hint={provider === 'gemini' ? settings.geminiKeyHint : settings.openaiKeyHint}
+          status={provider === 'gemini' ? settings.geminiKeyStatus : settings.openaiKeyStatus}
+          verifiedAt={
+            provider === 'gemini' ? settings.geminiKeyVerifiedAt : settings.openaiKeyVerifiedAt
+          }
         />
 
         <WorkspacePanel
@@ -80,6 +87,7 @@ export default async function SettingsPage() {
         />
 
         <AiPreferences
+          provider={provider}
           models={models}
           current={{
             chatModel: settings.chatModel,

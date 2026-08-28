@@ -7,7 +7,14 @@ import { requireUser } from '@/lib/auth/session'
 import { encryptSecret } from '@/lib/crypto'
 import { db } from '@/lib/db'
 import { userSettings } from '@/lib/db/schema'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import {
+  getAiClient,
+  isProviderId,
+  keyHint,
+  PROVIDERS,
+  toAiError,
+  type ProviderId,
+} from '@/lib/ai'
 import { rateLimit } from '@/lib/rate-limit'
 import { aiPreferencesSchema, apiKeySchema, fieldErrors } from '@/lib/validation'
 
@@ -15,10 +22,81 @@ export type AiSettingsState =
   | { ok?: boolean; message?: string; errors?: Record<string, string> }
   | undefined
 
-/** Lists models with the given key — the cheapest way to prove it works. */
+/** The cheapest call that proves a key works. */
 async function probe(userId: string) {
-  const ai = await getUserAi(userId)
-  await ai.client.models.list()
+  const ai = await getAiClient(userId)
+  await ai.verify()
+}
+
+/**
+ * Column names per provider.
+ *
+ * Keys live in their own columns rather than one shared slot so that switching
+ * provider and back does not throw away a key the learner already pasted.
+ */
+const COLUMNS = {
+  openai: {
+    cipher: 'openaiKeyCipher',
+    hint: 'openaiKeyHint',
+    status: 'openaiKeyStatus',
+    verifiedAt: 'openaiKeyVerifiedAt',
+  },
+  gemini: {
+    cipher: 'geminiKeyCipher',
+    hint: 'geminiKeyHint',
+    status: 'geminiKeyStatus',
+    verifiedAt: 'geminiKeyVerifiedAt',
+  },
+} as const
+
+const keyFields = (provider: ProviderId, values: Record<string, unknown>) => {
+  const columns = COLUMNS[provider]
+  const out: Record<string, unknown> = {}
+  for (const [role, value] of Object.entries(values)) {
+    out[columns[role as keyof typeof columns]] = value
+  }
+  return out
+}
+
+/** Which provider a settings write is about. Defaults to the one in use. */
+async function providerFor(userId: string, requested: unknown): Promise<ProviderId> {
+  if (isProviderId(requested)) return requested
+  const [row] = await db
+    .select({ provider: userSettings.aiProvider })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+    .limit(1)
+  return isProviderId(row?.provider) ? row.provider : 'openai'
+}
+
+/** Switches which provider runs the conversation. */
+export async function setAiProvider(value: string): Promise<AiSettingsState> {
+  const user = await requireUser()
+  if (!isProviderId(value)) return { errors: { form: 'Provedor desconhecido.' } }
+
+  await db
+    .insert(userSettings)
+    .values({ userId: user.id, aiProvider: value, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      /*
+       * The saved models belong to the old provider, so they are cleared
+       * rather than carried across — `gpt-4o` sent to Gemini is a confusing
+       * 404. The voice is cleared for the same reason; each provider names
+       * its own.
+       */
+      set: {
+        aiProvider: value,
+        chatModel: null,
+        sttModel: null,
+        ttsModel: null,
+        voice: PROVIDERS[value].voices[0].id,
+        updatedAt: new Date(),
+      },
+    })
+
+  revalidatePath('/settings')
+  return { ok: true, message: `Agora usando ${PROVIDERS[value].label}.` }
 }
 
 export async function saveApiKey(
@@ -30,25 +108,35 @@ export async function saveApiKey(
   const parsed = apiKeySchema.safeParse({ apiKey: formData.get('apiKey') })
   if (!parsed.success) return { errors: fieldErrors(parsed.error) }
 
+  const provider = await providerFor(user.id, formData.get('provider'))
   const apiKey = parsed.data.apiKey
+
+  /*
+   * Catch a key pasted into the wrong provider here rather than letting the
+   * request fail later with a message about an invalid key — the mistake is
+   * easy to make and the shapes are unmistakable.
+   */
+  if (!PROVIDERS[provider].keyPattern.test(apiKey)) {
+    return {
+      errors: {
+        apiKey: `Isso não parece uma chave da ${PROVIDERS[provider].label}. ${keyHint(PROVIDERS[provider])}`,
+      },
+    }
+  }
+
+  const written = keyFields(provider, {
+    cipher: encryptSecret(apiKey),
+    hint: apiKey.slice(-4),
+    status: 'unset',
+    verifiedAt: null,
+  })
+
   await db
     .insert(userSettings)
-    .values({
-      userId: user.id,
-      openaiKeyCipher: encryptSecret(apiKey),
-      openaiKeyHint: apiKey.slice(-4),
-      openaiKeyStatus: 'unset',
-      updatedAt: new Date(),
-    })
+    .values({ userId: user.id, aiProvider: provider, ...written, updatedAt: new Date() })
     .onConflictDoUpdate({
       target: userSettings.userId,
-      set: {
-        openaiKeyCipher: encryptSecret(apiKey),
-        openaiKeyHint: apiKey.slice(-4),
-        openaiKeyStatus: 'unset',
-        openaiKeyVerifiedAt: null,
-        updatedAt: new Date(),
-      },
+      set: { aiProvider: provider, ...written, updatedAt: new Date() },
     })
 
   // Verify immediately so the user never leaves this page unsure.
@@ -56,14 +144,14 @@ export async function saveApiKey(
     await probe(user.id)
     await db
       .update(userSettings)
-      .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
+      .set(keyFields(provider, { status: 'ok', verifiedAt: new Date() }))
       .where(eq(userSettings.userId, user.id))
     revalidatePath('/settings')
     return { ok: true, message: 'Chave salva e verificada.' }
   } catch (error) {
     await db
       .update(userSettings)
-      .set({ openaiKeyStatus: 'invalid', openaiKeyVerifiedAt: null })
+      .set(keyFields(provider, { status: 'invalid', verifiedAt: null }))
       .where(eq(userSettings.userId, user.id))
     revalidatePath('/settings')
     return { errors: { apiKey: toAiError(error).message } }
@@ -72,6 +160,7 @@ export async function saveApiKey(
 
 export async function testApiKey(): Promise<AiSettingsState> {
   const user = await requireUser()
+  const provider = await providerFor(user.id, null)
 
   const limit = rateLimit(`ai-test:${user.id}`, 10, 60_000)
   if (!limit.ok) return { errors: { form: 'Espere um instante antes de testar de novo.' } }
@@ -80,7 +169,7 @@ export async function testApiKey(): Promise<AiSettingsState> {
     await probe(user.id)
     await db
       .update(userSettings)
-      .set({ openaiKeyStatus: 'ok', openaiKeyVerifiedAt: new Date() })
+      .set(keyFields(provider, { status: 'ok', verifiedAt: new Date() }))
       .where(eq(userSettings.userId, user.id))
     revalidatePath('/settings')
     return { ok: true, message: 'Conexão saudável.' }
@@ -89,7 +178,7 @@ export async function testApiKey(): Promise<AiSettingsState> {
     if (aiError.status === 401) {
       await db
         .update(userSettings)
-        .set({ openaiKeyStatus: 'invalid' })
+        .set(keyFields(provider, { status: 'invalid' }))
         .where(eq(userSettings.userId, user.id))
     }
     revalidatePath('/settings')
@@ -97,16 +186,14 @@ export async function testApiKey(): Promise<AiSettingsState> {
   }
 }
 
-export async function removeApiKey(): Promise<AiSettingsState> {
+export async function removeApiKey(providerValue?: string): Promise<AiSettingsState> {
   const user = await requireUser()
+  const provider = await providerFor(user.id, providerValue)
 
   await db
     .update(userSettings)
     .set({
-      openaiKeyCipher: null,
-      openaiKeyHint: null,
-      openaiKeyStatus: 'unset',
-      openaiKeyVerifiedAt: null,
+      ...keyFields(provider, { cipher: null, hint: null, status: 'unset', verifiedAt: null }),
       updatedAt: new Date(),
     })
     .where(eq(userSettings.userId, user.id))

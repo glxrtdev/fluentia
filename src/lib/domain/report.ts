@@ -11,7 +11,7 @@ import {
   XP,
   type UnlockedAchievement,
 } from '@/lib/domain/gamification'
-import { AiError, type UserAi } from '@/lib/openai/client'
+import { AiError, type AiClient } from '@/lib/ai'
 import { buildReportPrompt, REPORT_SCHEMA } from '@/lib/openai/prompts'
 import { cefrForScore } from '@/lib/domain/cefr'
 import {
@@ -57,7 +57,7 @@ function pairList<K extends string, V extends string>(
  * updates the learning profile, awards XP and unlocks achievements.
  */
 export async function finishConversation(args: {
-  ai: UserAi
+  ai: AiClient
   userId: string
   learnerName: string
   conversationId: string
@@ -111,44 +111,32 @@ export async function finishConversation(args: {
     .map((correction) => `- [${correction.category}] "${correction.original}" → "${correction.corrected}"`)
     .join('\n')
 
-  const completion = await args.ai.client.chat.completions.create({
-    model: args.ai.models.chat,
-    temperature: 0.3,
-    max_tokens: 1200,
+  const raw = (await args.ai.chatJson({
+    system: buildReportPrompt({
+      language: workspace.language,
+      learnerName: args.learnerName,
+      level: conversation.level,
+      topicLabel: conversation.topicLabel,
+      durationSeconds: args.durationSeconds,
+      correctionCount: corrections.length,
+    }),
     messages: [
       {
-        role: 'system',
-        content: buildReportPrompt({
-          language: workspace.language,
-          learnerName: args.learnerName,
-          level: conversation.level,
-          topicLabel: conversation.topicLabel,
-          durationSeconds: args.durationSeconds,
-          correctionCount: corrections.length,
-        }),
-      },
-      {
         role: 'user',
-        content: `TRANSCRIPT\n${dialogue}\n\nCORRECTIONS RAISED LIVE\n${
+        content: `TRANSCRIPT
+${dialogue}
+
+CORRECTIONS RAISED LIVE
+${
           liveCorrections || '(none)'
-        }\n\nThe learner spoke ${wordsSpoken} words across ${userTurns.length} turns.`,
+        }`,
       },
     ],
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'session_report', strict: true, schema: REPORT_SCHEMA },
-    },
-  })
-
-  const content = completion.choices[0]?.message?.content
-  if (!content) throw new AiError('The report came back empty. Your session is still saved.')
-
-  let raw: RawReport
-  try {
-    raw = JSON.parse(content) as RawReport
-  } catch {
-    throw new AiError('Não foi possível ler o relatório. Sua sessão continua salva.')
-  }
+    schema: REPORT_SCHEMA as unknown as Record<string, unknown>,
+    schemaName: 'session_report',
+    temperature: 0.3,
+    maxTokens: 1200,
+  })) as RawReport
 
   const baseline = 60
   const speaking = score(raw.speaking, baseline)

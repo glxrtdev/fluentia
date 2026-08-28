@@ -5,7 +5,7 @@ import { getActiveWorkspace, getCurrentUser, getProfile } from '@/lib/auth/sessi
 import { db } from '@/lib/db'
 import { getLanguage } from '@/lib/languages'
 import { vocabulary } from '@/lib/db/schema'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import { getAiClient, toAiError } from '@/lib/ai'
 import { rateLimit } from '@/lib/rate-limit'
 
 const LANGUAGE_NAMES: Record<string, string> = {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   if (!user) return Response.json({ error: 'Não autenticado' }, { status: 401 })
 
   const limit = rateLimit(`translate:${user.id}`, 40, 60_000)
-  if (!limit.ok) return Response.json({ error: 'Too many translations.' }, { status: 429 })
+  if (!limit.ok) return Response.json({ error: 'Traduções demais.' }, { status: 429 })
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) return Response.json({ error: 'Requisição inválida.' }, { status: 400 })
@@ -51,37 +51,29 @@ export async function POST(request: Request) {
   const sourceLanguage = getLanguage(workspace?.language)
 
   try {
-    const ai = await getUserAi(user.id)
-    const completion = await ai.client.chat.completions.create({
-      model: ai.models.chat,
+    const ai = await getAiClient(user.id)
+    const translation = await ai.chatText({
+      system: `Translate ${sourceLanguage.name.en} vocabulary into ${language} for a language learner. Reply with the translation only: at most four words, no quotes, no explanation, nothing else.`,
+      user: `${sourceLanguage.name.en} word: ${parsed.data.word}
+Definition (in English): ${parsed.data.definition}`,
       temperature: 0.2,
-      max_tokens: 120,
-      messages: [
-        {
-          role: 'system',
-          content: `Translate ${sourceLanguage.name.en} vocabulary into ${language} for a language learner. Reply with the translation only: at most four words, no quotes, no explanation, nothing else.`,
-        },
-        {
-          role: 'user',
-          content: `Word: ${parsed.data.word}\nEnglish definition: ${parsed.data.definition}`,
-        },
-      ],
+      maxTokens: 120,
     })
 
-    const translation = (completion.choices[0]?.message?.content ?? '').trim().slice(0, 200)
-    if (!translation) return Response.json({ error: 'Nenhuma tradução voltou.' }, { status: 502 })
+    const clean = translation.trim().slice(0, 200)
+    if (!clean) return Response.json({ error: 'Nenhuma tradução voltou.' }, { status: 502 })
 
     // Persist it when the word is already in the learner's own vocabulary.
     if (parsed.data.vocabularyId) {
       await db
         .update(vocabulary)
-        .set({ translation, updatedAt: new Date() })
+        .set({ translation: clean, updatedAt: new Date() })
         .where(
           and(eq(vocabulary.id, parsed.data.vocabularyId), eq(vocabulary.userId, user.id)),
         )
     }
 
-    return Response.json({ translation, language })
+    return Response.json({ translation: clean, language })
   } catch (error) {
     const aiError = toAiError(error)
     return Response.json({ error: aiError.message }, { status: aiError.status })

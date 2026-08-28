@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth/session'
 import { getOwnedConversation } from '@/lib/domain/conversation'
 import { finishConversation } from '@/lib/domain/report'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import { getAiClient, toAiError } from '@/lib/ai'
 import { rateLimit } from '@/lib/rate-limit'
 import { dayFrom } from '@/lib/utils'
 import { endConversationSchema } from '@/lib/validation'
@@ -26,7 +26,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   try {
     const result = await finishConversation({
-      ai: await getUserAi(user.id),
+      ai: await getAiClient(user.id),
       userId: user.id,
       learnerName: user.name,
       conversationId: conversation.id,

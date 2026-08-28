@@ -13,7 +13,7 @@ import {
   saveCorrections,
 } from '@/lib/domain/conversation'
 import { recordMistakes } from '@/lib/domain/mistakes'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import { getAiClient, toAiError } from '@/lib/ai'
 import { generateTurn, transcribe } from '@/lib/openai/conversation'
 import { getLanguage } from '@/lib/languages'
 import { rateLimit } from '@/lib/rate-limit'
@@ -87,7 +87,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const audioMs = Number(form.get('audioMs')) || null
 
   try {
-    const ai = await getUserAi(user.id)
+    const ai = await getAiClient(user.id)
 
     const extension = EXTENSIONS[mime] ?? 'webm'
     const file = new File([await audio.arrayBuffer()], `turn.${extension}`, {

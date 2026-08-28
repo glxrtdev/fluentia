@@ -1,11 +1,10 @@
 import 'server-only'
 
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
 
 import { narrowCorrection } from '@/lib/corrections/diff'
 import type { CorrectionCategory } from '@/lib/db/schema'
 
-import { AiError, type UserAi } from './client'
+import { AiError, type AiClient } from '@/lib/ai'
 import { TURN_SCHEMA } from './prompts'
 
 export type TurnCorrection = {
@@ -24,18 +23,8 @@ export type TurnResult = {
 }
 
 /** Speech to text using the user's own key. Returns the raw transcript. */
-export async function transcribe(ai: UserAi, audio: File, language = 'en'): Promise<string> {
-  const result = await ai.client.audio.transcriptions.create({
-    file: audio,
-    model: ai.models.stt,
-    // Naming the language stops the model guessing, which it does badly on a
-    // learner's accented speech.
-    language,
-    prompt: 'A student practising this language out loud in a conversation with their teacher.',
-    response_format: 'json',
-  })
-
-  return (result.text ?? '').trim()
+export async function transcribe(ai: AiClient, audio: File, language = 'en'): Promise<string> {
+  return ai.transcribe(audio, language)
 }
 
 type RawTurn = {
@@ -111,48 +100,31 @@ function normalise(raw: RawTurn): TurnResult {
  * corrections consistent with each other.
  */
 export async function generateTurn(
-  ai: UserAi,
+  ai: AiClient,
   args: {
     systemPrompt: string
     history: { role: 'user' | 'assistant'; content: string }[]
     userText: string | null
   },
 ): Promise<TurnResult> {
-  const messages: ChatCompletionMessageParam[] = [
-    { role: 'system', content: args.systemPrompt },
-    ...args.history.map((m) => ({ role: m.role, content: m.content }) as ChatCompletionMessageParam),
+  const messages = [
+    ...args.history.map((m) => ({ role: m.role, content: m.content })),
+    {
+      role: 'user' as const,
+      content:
+        args.userText ||
+        '[The learner just joined the call and has not spoken yet. Greet them briefly by name and open the topic with one clear, concrete question. Return an empty corrections array.]',
+    },
   ]
 
-  messages.push(
-    args.userText
-      ? { role: 'user', content: args.userText }
-      : {
-          role: 'user',
-          content:
-            '[The learner just joined the call and has not spoken yet. Greet them briefly by name and open the topic with one clear, concrete question. Return an empty corrections array.]',
-        },
-  )
-
-  const completion = await ai.client.chat.completions.create({
-    model: ai.models.chat,
+  const parsed = (await ai.chatJson({
+    system: args.systemPrompt,
     messages,
+    schema: TURN_SCHEMA as unknown as Record<string, unknown>,
+    schemaName: 'conversation_turn',
     temperature: 0.8,
-    max_tokens: 700,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: 'conversation_turn', strict: true, schema: TURN_SCHEMA },
-    },
-  })
-
-  const content = completion.choices[0]?.message?.content
-  if (!content) throw new AiError('The teacher returned an empty response.')
-
-  let parsed: RawTurn
-  try {
-    parsed = JSON.parse(content) as RawTurn
-  } catch {
-    throw new AiError('The teacher response could not be read.')
-  }
+    maxTokens: 700,
+  })) as RawTurn
 
   return normalise(parsed)
 }

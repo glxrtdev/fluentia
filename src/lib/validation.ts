@@ -79,13 +79,19 @@ export const goalsSchema = z.object({
     .max(GOAL_KINDS.length),
 })
 
+/*
+ * Only what is true of every provider's key. The shape differs — `sk-` for
+ * OpenAI, `AIza` or `AQ.` for Gemini — and this schema has no idea which one is
+ * selected, so asserting a shape here told a Gemini user their key should
+ * start with "sk-". That check lives in `actions/ai`, which does know.
+ */
 export const apiKeySchema = z.object({
   apiKey: z
     .string()
     .trim()
-    .min(20, 'That does not look like an OpenAI key.')
-    .max(200)
-    .regex(/^sk-[A-Za-z0-9_\-]+$/, 'OpenAI keys start with "sk-".'),
+    .min(20, 'Isso é curto demais para ser uma chave.')
+    .max(200, 'Isso é longo demais para ser uma chave.')
+    .regex(/^\S+$/, 'A chave não pode conter espaços.'),
 })
 
 export const aiPreferencesSchema = z.object({

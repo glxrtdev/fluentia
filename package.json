@@ -16,13 +16,17 @@
     "typecheck": "tsc --noEmit --incremental false",
     "db:generate": "drizzle-kit generate",
     "db:studio": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio",
-    "test": "node --test tests/migration.test.mjs tests/domain.test.mjs tests/transcript-marks.test.mjs tests/dictionary.test.mjs tests/correction-diff.test.mjs tests/wiktionary.test.mjs tests/cefr.test.mjs tests/progression.test.mjs",
+    "test": "node --test tests/migration.test.mjs tests/domain.test.mjs tests/transcript-marks.test.mjs tests/dictionary.test.mjs tests/correction-diff.test.mjs tests/wiktionary.test.mjs tests/cefr.test.mjs tests/progression.test.mjs tests/gemini-shapes.test.mjs tests/provider-keys.test.mjs",
     "test:smoke": "node --env-file-if-exists=.env.local tests/smoke.mjs",
     "test:voice": "node --env-file-if-exists=.env.local tests/voice-loop.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "test:responsive": "node --env-file-if-exists=.env.local tests/responsive.mjs",
     "test:workspaces": "node --env-file-if-exists=.env.local tests/workspaces.mjs",
-    "test:levels": "node --env-file-if-exists=.env.local tests/levelling.mjs"
+    "test:levels": "node --env-file-if-exists=.env.local tests/levelling.mjs",
+    "test:gemini": "node --env-file-if-exists=.env.local tests/gemini-wire.mjs",
+    "test:keys": "node --env-file-if-exists=.env.local tests/gemini-key-format.mjs",
+    "test:isolation": "node --env-file-if-exists=.env.local tests/provider-isolation.mjs",
+    "check:gemini": "node --env-file-if-exists=.env.local scripts/check-gemini.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

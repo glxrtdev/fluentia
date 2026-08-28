@@ -10,7 +10,7 @@ import { conversations } from '@/lib/db/schema'
 import { appendMessage, buildPromptFor, nextSeq } from '@/lib/domain/conversation'
 import { registerPractice, XP } from '@/lib/domain/gamification'
 import { TOPIC_BY_ID } from '@/lib/domain/topics'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import { getAiClient, toAiError } from '@/lib/ai'
 import { generateTurn } from '@/lib/openai/conversation'
 import { rateLimit } from '@/lib/rate-limit'
 import { dayFrom } from '@/lib/utils'
@@ -64,7 +64,7 @@ export async function startConversation(
     .returning({ id: conversations.id })
 
   try {
-    const ai = await getUserAi(user.id)
+    const ai = await getAiClient(user.id)
     const prompt = await buildPromptFor(workspace.id, user.name, {
       topicId: topic?.id ?? null,
       topicLabel: topic?.label ?? custom!,

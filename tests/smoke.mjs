@@ -315,9 +315,12 @@ async function main() {
     owner.cookie,
   )
   const noKeyBody = await noKey.json().catch(() => ({}))
+  // The message names whichever provider is selected, so it is matched on the
+  // part that must always be there: it has to say a key is missing, in the
+  // language the panel is written in.
   record(
-    'missing OpenAI key returns a clear error',
-    noKey.status === 428 && /API key/i.test(noKeyBody.error ?? ''),
+    'missing provider key returns a clear error',
+    noKey.status === 428 && /chave/i.test(noKeyBody.error ?? ''),
     `status ${noKey.status} — ${noKeyBody.error ?? ''}`,
   )
 

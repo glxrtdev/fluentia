@@ -1,5 +1,5 @@
 import { getCurrentUser } from '@/lib/auth/session'
-import { getUserAi, toAiError } from '@/lib/openai/client'
+import { getAiClient, PROVIDERS, toAiError } from '@/lib/ai'
 import { speak } from '@/lib/openai/speech'
 import { rateLimit } from '@/lib/rate-limit'
 import { dictionaryQuerySchema } from '@/lib/validation'
@@ -27,11 +27,12 @@ export async function GET(request: Request) {
   if (!limit.ok) return Response.json({ error: 'Too many requests.' }, { status: 429 })
 
   try {
-    const stream = await speak(await getUserAi(user.id), parsed.data)
+    const ai = await getAiClient(user.id)
+    const stream = await speak(ai, parsed.data)
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'audio/mpeg',
+        'Content-Type': PROVIDERS[ai.provider].audioMime,
         // Private so a shared cache never holds one learner's audio.
         'Cache-Control': 'private, max-age=604800',
       },

@@ -8,12 +8,15 @@ import { Card, CardHeader } from '@/components/ui/card'
 import { Field } from '@/components/ui/field'
 import { Select, type SelectOption } from '@/components/ui/select'
 import { VoicePicker } from '@/components/settings/voice-picker'
+import type { ProviderId } from '@/lib/ai/provider'
 import { updateAiPreferences } from '@/lib/actions/ai'
 
 export function AiPreferences({
+  provider,
   models,
   current,
 }: {
+  provider: ProviderId
   models: { chat: SelectOption[]; stt: SelectOption[]; tts: SelectOption[] }
   current: {
     chatModel: string | null
@@ -62,7 +65,7 @@ export function AiPreferences({
             error={state?.errors?.voice}
             className="sm:col-span-2"
           >
-            <VoicePicker defaultValue={current.voice} />
+            <VoicePicker defaultValue={current.voice} provider={provider} />
           </Field>
         </div>
 

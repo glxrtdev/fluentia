@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { SelectOption } from '@/components/ui/select'
 
-import { getUserAi, type UserAi } from './client'
+import { getAiClient, PROVIDERS, type AiClient, type ProviderId } from '@/lib/ai'
 
 export type ModelRole = 'chat' | 'stt' | 'tts'
 
@@ -22,7 +22,9 @@ const catalogueCache = new Map<string, { expires: number; ids: string[] }>()
  * whatever else the learner's own account can reach, so a newer model works
  * here the day they get access to it.
  */
-export const RECOMMENDED: Record<ModelRole, { id: string; label: string; description: string }[]> =
+type Recommendation = { id: string; label: string; description: string }
+
+const OPENAI_RECOMMENDED: Record<ModelRole, Recommendation[]> =
   {
     chat: [
       {
@@ -74,8 +76,70 @@ export const RECOMMENDED: Record<ModelRole, { id: string; label: string; descrip
     ],
   }
 
-/** Which ids belong to which role, for filtering the account's own catalogue. */
-function roleOf(id: string): ModelRole | null {
+const GEMINI_RECOMMENDED: Record<ModelRole, Recommendation[]> = {
+  chat: [
+    {
+      id: 'gemini-2.5-flash',
+      label: 'Gemini 2.5 Flash',
+      description: 'Equilibrado. O padrão — conversa natural e correções confiáveis.',
+    },
+    {
+      id: 'gemini-2.5-pro',
+      label: 'Gemini 2.5 Pro',
+      description: 'Mais capaz e mais caro. Correções mais precisas em nível avançado.',
+    },
+    {
+      id: 'gemini-2.5-flash-lite',
+      label: 'Gemini 2.5 Flash Lite',
+      description: 'O mais barato e rápido. Correções menos precisas.',
+    },
+  ],
+  stt: [
+    {
+      id: 'gemini-2.5-flash',
+      label: 'Gemini 2.5 Flash',
+      description: 'Transcreve o áudio direto. Bom com fala hesitante.',
+    },
+    {
+      id: 'gemini-2.5-flash-lite',
+      label: 'Gemini 2.5 Flash Lite',
+      description: 'Mais barato para transcrever, um pouco menos exato.',
+    },
+  ],
+  tts: [
+    {
+      id: 'gemini-2.5-flash-preview-tts',
+      label: 'Gemini 2.5 Flash TTS',
+      description: 'Vozes pré-definidas do Gemini. Responde em uma peça, não em stream.',
+    },
+    {
+      id: 'gemini-2.5-pro-preview-tts',
+      label: 'Gemini 2.5 Pro TTS',
+      description: 'Entrega mais expressiva, mais cara.',
+    },
+  ],
+}
+
+const RECOMMENDED: Record<ProviderId, Record<ModelRole, Recommendation[]>> = {
+  openai: OPENAI_RECOMMENDED,
+  gemini: GEMINI_RECOMMENDED,
+}
+
+/**
+ * Which ids belong to which role, for filtering the account's own catalogue.
+ *
+ * Gemini names one model for several jobs — `gemini-2.5-flash` both hears and
+ * thinks — so its rule is by suffix, not by family.
+ */
+function roleOf(id: string, provider: ProviderId): ModelRole | null {
+  if (provider === 'gemini') {
+    if (!id.startsWith('gemini')) return null
+    if (/-tts$/.test(id)) return 'tts'
+    if (/embedding|image|imagen|veo|live|native-audio/.test(id)) return null
+    // A text model can transcribe as well as reply, so it is offered for both.
+    return 'chat'
+  }
+
   if (/tts/.test(id)) return 'tts'
   if (/transcribe|whisper/.test(id)) return 'stt'
   if (/^(gpt-|o[1-9])/.test(id) && !/audio|realtime|image|search|embedding|moderation/.test(id)) {
@@ -84,29 +148,39 @@ function roleOf(id: string): ModelRole | null {
   return null
 }
 
-function optionsFor(role: ModelRole, defaultId: string, available: string[]): SelectOption[] {
-  const recommended = RECOMMENDED[role]
+function optionsFor(
+  role: ModelRole,
+  defaultId: string,
+  available: string[],
+  provider: ProviderId,
+): SelectOption[] {
+  const recommended = RECOMMENDED[provider][role]
 
   const base: SelectOption[] = [
     {
       value: '',
-      label: `Default (${defaultId})`,
-      description: 'Follow the app default, which may change with an update.',
-      group: 'Recommended',
+      label: `Padrão (${defaultId})`,
+      description: 'Segue o padrão do app, que pode mudar numa atualização.',
+      group: 'Recomendados',
     },
     ...recommended.map((model) => ({
       value: model.id,
       label: model.label,
       description: model.description,
-      group: 'Recommended',
+      group: 'Recomendados',
     })),
   ]
 
   const known = new Set(recommended.map((model) => model.id))
   const extra = available
-    .filter((id) => roleOf(id) === role && !known.has(id))
+    .filter((id) => {
+      const belongs = roleOf(id, provider)
+      // Gemini text models double as transcribers, so they appear under both.
+      const fits = provider === 'gemini' && role === 'stt' ? belongs === 'chat' : belongs === role
+      return fits && !known.has(id)
+    })
     .sort()
-    .map((id) => ({ value: id, label: id, group: 'Also available to your account' }))
+    .map((id) => ({ value: id, label: id, group: 'Também disponíveis na sua conta' }))
 
   return [...base, ...extra]
 }
@@ -122,27 +196,29 @@ function optionsFor(role: ModelRole, defaultId: string, available: string[]): Se
  */
 export async function loadModelOptions(
   userId: string,
-  defaults: Record<ModelRole, string>,
+  provider: ProviderId,
 ): Promise<Record<ModelRole, SelectOption[]>> {
+  const defaults = PROVIDERS[provider].defaults
   let available: string[] = []
 
-  const cached = catalogueCache.get(userId)
+  // Keyed by provider too: switching providers must not serve the old catalogue.
+  const cacheKey = `${userId}:${provider}`
+  const cached = catalogueCache.get(cacheKey)
   if (cached && cached.expires > Date.now()) {
     available = cached.ids
   } else {
     try {
-      const ai: UserAi = await getUserAi(userId)
-      const page = await ai.client.models.list()
-      available = page.data.map((model) => model.id)
-      catalogueCache.set(userId, { expires: Date.now() + CATALOGUE_TTL_MS, ids: available })
+      const ai: AiClient = await getAiClient(userId)
+      available = await ai.listModels()
+      catalogueCache.set(cacheKey, { expires: Date.now() + CATALOGUE_TTL_MS, ids: available })
     } catch {
       available = []
     }
   }
 
   return {
-    chat: optionsFor('chat', defaults.chat, available),
-    stt: optionsFor('stt', defaults.stt, available),
-    tts: optionsFor('tts', defaults.tts, available),
+    chat: optionsFor('chat', defaults.chat, available, provider),
+    stt: optionsFor('stt', defaults.stt, available, provider),
+    tts: optionsFor('tts', defaults.tts, available, provider),
   }
 }

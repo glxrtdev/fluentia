@@ -8,14 +8,16 @@ português, japonês, coreano, chinês e russo.
 
 **→ [fluentia-smoky.vercel.app](https://fluentia-smoky.vercel.app)**
 
-A Fluentia roda com a **sua própria chave da OpenAI**. Não há créditos, assinatura nem chave
-compartilhada: transcrição, respostas e fala são cobradas direto na sua conta.
+A Fluentia roda com a **sua própria chave** de IA — OpenAI ou Google Gemini. Não há créditos,
+assinatura nem chave compartilhada: transcrição, respostas e fala são cobradas direto na sua conta.
 
 ---
 
 ## Sumário
 
+- [Provedores de IA](#provedores-de-ia)
 - [Como pegar sua chave da OpenAI](#como-pegar-sua-chave-da-openai)
+- [Como pegar sua chave do Gemini](#como-pegar-sua-chave-do-gemini)
 - [O ciclo](#o-ciclo)
 - [Espaços de idioma](#espaços-de-idioma)
 - [Níveis, progresso e XP](#níveis-progresso-e-xp)
@@ -26,6 +28,43 @@ compartilhada: transcrição, respostas e fala são cobradas direto na sua conta
 - [Segurança](#segurança)
 - [Estrutura](#estrutura)
 - [Limites conhecidos](#limites-conhecidos)
+
+---
+
+## Provedores de IA
+
+A Fluentia precisa de três coisas do provedor: **ouvir** (transcrição), **pensar** (resposta e
+correções sob um JSON Schema) e **falar** (síntese de voz). Só aparecem em **Configurações →
+Provedor de IA** os que fazem os três sozinhos — você nunca precisa de duas contas para uma
+conversa.
+
+| | Ouvir | Pensar | Falar |
+| --- | :---: | :---: | :---: |
+| OpenAI | sim | sim | sim |
+| Google Gemini | sim | sim | sim |
+| Anthropic (Claude) | **não** | sim | **não** |
+
+O Claude está de fora de propósito: a Messages API dele aceita texto, imagens e PDF e devolve só
+texto. Ele seria um bom professor, mas um espaço com Claude ainda precisaria de OpenAI ou Gemini
+por baixo para ouvir e falar.
+
+Trocar de provedor limpa os modelos e a voz escolhidos, porque cada um tem os seus. **A chave do
+outro provedor continua salva**, criptografada — você não precisa colar de novo se voltar.
+
+Diferenças que valem saber:
+
+- A OpenAI transmite a fala em `mp3` conforme gera; o Gemini devolve a fala inteira de uma vez, em
+  PCM cru, que o app empacota como `wav` antes de mandar ao navegador. Na prática o Gemini demora
+  um pouco mais para o professor começar a falar.
+- O Gemini usa o mesmo modelo para ouvir e para pensar (`gemini-2.5-flash` faz os dois); a OpenAI
+  tem um modelo por papel.
+
+> **Um risco em aberto no Gemini.** O Google documenta como formatos de áudio aceitos WAV, MP3,
+> AIFF, AAC, OGG Vorbis e FLAC — e **não** WebM/Opus, que é justamente o que o Chrome e o Edge
+> gravam. Se a transcrição falhar por formato, o app diz isso em palavras claras em vez de um erro
+> genérico de chave. Rode `npm run check:gemini -- <sua-chave> gravacao.webm` para resolver a dúvida com
+> uma gravação real; se o Google recusar, a correção é gravar WAV no navegador quando o provedor for
+> o Gemini.
 
 ---
 
@@ -76,6 +115,29 @@ do app.
 
 ---
 
+## Como pegar sua chave do Gemini
+
+1. Entre em **[aistudio.google.com/apikey](https://aistudio.google.com/apikey)** com sua conta
+   Google.
+2. **Create API key** — o Google usa dois formatos, e os dois funcionam aqui: a chave
+   clássica, que começa com `AIza` (normalmente `AIzaSy`), e a auth key mais nova do AI
+   Studio, que começa com `AQ.`.
+3. Cole em **Configurações → Configuração de IA**, com **Google Gemini** selecionado.
+
+O AI Studio tem um nível gratuito com limites diários, o que é suficiente para experimentar sem
+cadastrar cartão. Para uso constante, ligue o faturamento no projeto do Google Cloud associado.
+
+Para conferir a chave fora do app, antes de colar:
+
+```bash
+npm run check:gemini -- <sua-chave>
+```
+
+Ele faz uma chamada por capacidade — chave, schema do professor, e fala — então uma falha diz qual
+das três quebrou, em vez de só "não funcionou".
+
+---
+
 ## O ciclo
 
 ```
@@ -92,7 +154,7 @@ do app.
          │                         └───────────────┬───────────────┘
          │                                         │
          │        GET /api/speech?messageId=…      ▼
-         └────────────  áudio/mpeg em stream ── o professor fala
+         └──────────  áudio em stream (mp3 / wav) ── o professor fala
                                                    │
                             as correções aparecem no painel lateral,
                             em silêncio, enquanto o professor continua
@@ -124,7 +186,7 @@ idioma e nada que é seu:
 | Nível oficial e progresso | Sequência de dias |
 | Erros e vocabulário | XP |
 | Sessões e relatórios | Conquistas |
-| Metas semanais | Nome, senha, chave da OpenAI |
+| Metas semanais | Nome, senha, chaves de IA |
 
 Praticar japonês numa terça não quebra a sequência construída em inglês — a sequência é sua, não do
 idioma.
@@ -223,6 +285,7 @@ conquistas semeado quando o servidor sobe.
 | `ENCRYPTION_KEY` | Chave hex de 32 bytes que criptografa a chave da OpenAI de cada usuário |
 | `OPENAI_CHAT_MODEL` / `OPENAI_STT_MODEL` / `OPENAI_TTS_MODEL` | Padrões opcionais, substituíveis por usuário em Configurações |
 | `OPENAI_BASE_URL` | Opcional; aponta para um gateway compatível com a OpenAI (usado também pelos testes) |
+| `GEMINI_BASE_URL` | Opcional; mesma ideia para o Gemini |
 
 > **`ENCRYPTION_KEY` é o segredo que mais importa.** Se você trocá-la, toda chave da OpenAI já
 > guardada vira ilegível e os usuários precisam colar a delas de novo. Ao publicar na Vercel, copie
@@ -255,6 +318,10 @@ npm test             # unitários puros, sem banco
 npm run test:smoke      http://localhost:3000        # páginas, guardas de auth, isolamento
 npm run test:voice      http://localhost:3000 4319   # o ciclo de voz inteiro contra um mock
 npm run test:levels     http://localhost:3000        # promoção de nível ponta a ponta
+npm run test:gemini     http://localhost:3000        # o ciclo no Gemini, contra um dublê do Google
+npm run test:keys       http://localhost:3000        # os dois formatos de chave do Google, no formulário
+npm run test:isolation  http://localhost:3000        # as duas chaves salvas: só a selecionada é usada
+npm run check:gemini -- <sua-chave>                  # verifica uma chave real contra o Google
 npm run test:workspaces http://localhost:3000        # isolamento entre idiomas, em navegador
 npm run test:responsive http://localhost:3000        # 6 larguras, sem scroll horizontal
 npm run icons        # regenera favicon, ícone do app e card social a partir da logo
@@ -262,8 +329,8 @@ npm run db:generate  # nova migração depois de editar o schema
 npm run db:studio    # navega no banco
 ```
 
-`test:voice` e `test:levels` precisam do app iniciado com
-`OPENAI_BASE_URL=http://127.0.0.1:4319/v1`. Eles sobem um dublê compatível com a OpenAI e percorrem
+`test:voice`, `test:levels` e `test:gemini` precisam do app iniciado com
+`OPENAI_BASE_URL=http://127.0.0.1:4319/v1 GEMINI_BASE_URL=http://127.0.0.1:4320`. Eles sobem um dublê compatível com a OpenAI e percorrem
 o ciclo inteiro — upload de áudio, transcrição, resposta, correções, agregação de erros, streaming
 de fala, relatório, XP, sequência, conquistas e promoção de nível — sem gastar um centavo.
 
@@ -280,7 +347,7 @@ pende de `workspaces`.
 
 ```
 users ──┬── profiles              XP, sequência, idioma nativo, tempo total
-        ├── user_settings         chave criptografada, modelos, voz, tema, espaço ativo
+        ├── user_settings         provedor, chaves criptografadas (uma por provedor), modelos, voz, tema
         ├── sessions              tokens de sessão com hash
         ├── user_achievements ── achievements     catálogo semeado do código
         ├── streaks                               uma linha por dia praticado
@@ -303,8 +370,9 @@ promoveu (`promoted_to`), então a promoção é um fato registrado, não um cá
 
 ## Segurança
 
-- **Chaves da API** são criptografadas com AES-256-GCM (`src/lib/crypto.ts`) e só descriptografadas
-  dentro de `getUserAi()`. Nenhuma rota devolve uma chave, nem mascarada além dos 4 últimos dígitos.
+- **Chaves da API** são criptografadas com AES-256-GCM (`src/lib/crypto.ts`), uma por provedor, e só
+  descriptografadas dentro de `getAiClient()`. A do Gemini viaja no cabeçalho `x-goog-api-key`,
+  nunca na URL, para não acabar num log de acesso. Nenhuma rota devolve uma chave, nem mascarada além dos 4 últimos dígitos.
 - **Sessões** são tokens opacos de 32 bytes em cookies `httpOnly`, `sameSite=lax`; só o SHA-256 é
   guardado, então o banco não serve para se passar por ninguém.
 - **Senhas** usam `scrypt` com sal por senha e comparação em tempo constante.
@@ -338,7 +406,9 @@ src/
     domain/          conversa, erros, relatório, gamificação, recomendações, temas,
                      cefr, progression (as regras de nível), workspace
     dictionary/      dictionaryapi.dev + Wiktionary, normalização testável
-    openai/          cliente, prompts + JSON schemas, turno, fala
+    ai/              provedores: a interface, os adaptadores OpenAI e Gemini, e as
+                     conversões que o Gemini exige (dialeto de schema, PCM → WAV)
+    openai/          prompts, JSON schemas, turno, fala
     languages.ts     os 10 idiomas: código STT, notas de ensino, dicionário, amostra de voz
     actions/         server actions agrupadas por funcionalidade
     hooks/           use-recorder (detecção de atividade de voz)

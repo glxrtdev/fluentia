@@ -156,11 +156,29 @@ export const userSettings = pgTable('user_settings', {
   userId: text('user_id')
     .primaryKey()
     .references(() => users.id, { onDelete: 'cascade' }),
+  /*
+   * Which provider runs the conversation. Only providers that can hear, think
+   * and speak on their own are offered — see `lib/ai/provider`.
+   */
+  aiProvider: text('ai_provider').notNull().default('openai').$type<'openai' | 'gemini'>(),
+
   // AES-256-GCM payload of the user's own OpenAI key. Never leaves the server.
   openaiKeyCipher: text('openai_key_cipher'),
   openaiKeyHint: text('openai_key_hint'), // last 4 chars, safe to display
   openaiKeyVerifiedAt: optionalStamp('openai_key_verified_at'),
   openaiKeyStatus: text('openai_key_status')
+    .$type<'unset' | 'ok' | 'invalid'>()
+    .notNull()
+    .default('unset'),
+
+  /*
+   * A key per provider rather than one slot that gets overwritten: switching
+   * to Gemini and back should not cost you the OpenAI key you already pasted.
+   */
+  geminiKeyCipher: text('gemini_key_cipher'),
+  geminiKeyHint: text('gemini_key_hint'),
+  geminiKeyVerifiedAt: optionalStamp('gemini_key_verified_at'),
+  geminiKeyStatus: text('gemini_key_status')
     .$type<'unset' | 'ok' | 'invalid'>()
     .notNull()
     .default('unset'),
