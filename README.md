@@ -321,6 +321,7 @@ npm run test:levels     http://localhost:3000        # promoção de nível pont
 npm run test:gemini     http://localhost:3000        # o ciclo no Gemini, contra um dublê do Google
 npm run test:keys       http://localhost:3000        # os dois formatos de chave do Google, no formulário
 npm run test:isolation  http://localhost:3000        # as duas chaves salvas: só a selecionada é usada
+npm run test:rls                                     # a API pública do Supabase segue fechada
 npm run check:gemini -- <sua-chave>                  # verifica uma chave real contra o Google
 npm run test:workspaces http://localhost:3000        # isolamento entre idiomas, em navegador
 npm run test:responsive http://localhost:3000        # 6 larguras, sem scroll horizontal
@@ -386,6 +387,16 @@ promoveu (`promoted_to`), então a promoção é um fato registrado, não um cá
   dicionário.
 - **Cascatas** — apagar um usuário remove toda linha dele, por chave estrangeira e não por código.
 - **Áudio** é enviado à OpenAI e nunca escrito em disco; a Fluentia guarda o texto.
+- **A API pública do Supabase está fechada.** O Supabase serve o schema `public` por PostgREST a um
+  papel `anon`, alcançável por quem tiver a *anon key* — uma credencial feita para ficar no
+  navegador. A Fluentia não usa essa API: conecta direto no Postgres como `postgres`, dono das
+  tabelas, e dono ignora RLS. Então `0006_row_level_security.sql` liga RLS nas 17 tabelas **sem
+  nenhuma policy** (a API não vê nada, o app não sente nada), revoga os privilégios de
+  `anon`/`authenticated` e ajusta os *default privileges* para tabela nova não nascer exposta.
+  `npm run test:rls` verifica as duas metades — que está fechado e que o app ainda lê e escreve.
+
+  > Se um dia o `supabase-js` for usado no navegador, isso precisa virar policies por usuário em vez
+  > de bloqueio total. Enquanto nada no `src/` importar `supabase-js`, o bloqueio é o mais seguro.
 
 ---
 

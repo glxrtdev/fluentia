@@ -26,6 +26,7 @@
     "test:gemini": "node --env-file-if-exists=.env.local tests/gemini-wire.mjs",
     "test:keys": "node --env-file-if-exists=.env.local tests/gemini-key-format.mjs",
     "test:isolation": "node --env-file-if-exists=.env.local tests/provider-isolation.mjs",
+    "test:rls": "node --env-file-if-exists=.env.local tests/rls.mjs",
     "check:gemini": "node --env-file-if-exists=.env.local scripts/check-gemini.mjs"
   },
   "dependencies": {
